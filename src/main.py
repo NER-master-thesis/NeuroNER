@@ -77,10 +77,10 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
 
 def get_valid_dataset_filepaths(parameters):
     dataset_filepaths = {}
-
     for dataset_type in ['train', 'valid', 'test']:
         dataset_filepaths[dataset_type] = os.path.join(parameters['dataset_'+dataset_type])
     return dataset_filepaths
+
 
 def check_parameter_compatiblity(parameters, dataset_filepaths):
     # Check mode of operation

@@ -5,6 +5,8 @@ import codecs
 import spacy
 import utils_nlp
 import utils
+import json
+from pycorenlp import StanfordCoreNLP
 
 
 def get_start_and_end_offset_of_token_from_spacy(token):
@@ -34,6 +36,36 @@ def get_sentences_and_tokens_from_spacy(text, spacy_nlp):
         sentences.append(sentence_tokens)
     return sentences
 
+def get_stanford_annotations(text, core_nlp, port=9000, annotators='tokenize,ssplit,pos,lemma'):
+    output = core_nlp.annotate(text, properties={
+        "timeout": "10000",
+        "ssplit.newlineIsSentenceBreak": "two",
+        'annotators': annotators,
+        'outputFormat': 'json'
+    })
+    if type(output) is str:
+        output = json.loads(output, strict=False)
+    return output
+
+def get_sentences_and_tokens_from_stanford(text, core_nlp):
+    stanford_output = get_stanford_annotations(text, core_nlp)
+    sentences = []
+    for sentence in stanford_output['sentences']:
+        tokens = []
+        for token in sentence['tokens']:
+            token['start'] = int(token['characterOffsetBegin'])
+            token['end'] = int(token['characterOffsetEnd'])
+            token['text'] = text[token['start']:token['end']]
+            if token['text'].strip() in ['\n', '\t', ' ', '']:
+                continue
+            # Make sure that the token text does not contain any space
+            if len(token['text'].split(' ')) != 1:
+                print("WARNING: the text of the token contains space character, replaced with hyphen\n\t{0}\n\t{1}".format(token['text'], 
+                                                                                                                           token['text'].replace(' ', '-')))
+                token['text'] = token['text'].replace(' ', '-')
+            tokens.append(token)
+        sentences.append(tokens)
+    return sentences
 
 def get_entities_from_brat(text_filepath, annotation_filepath, verbose=False):
     # load text
@@ -83,12 +115,17 @@ def check_brat_annotation_and_text_compatibility(brat_folder):
         text, entities = get_entities_from_brat(text_filepath, annotation_filepath)
     print("Done.")
 
-def brat_to_conll(input_folder, output_filepath):
+def brat_to_conll(input_folder, output_filepath, tokenizer):
     '''
     Assumes '.txt' and '.ann' files are in the input_folder.
     Checks for the compatibility between .txt and .ann at the same time.
     '''
-    spacy_nlp = spacy.load('en')
+    if tokenizer == 'spacy':
+        spacy_nlp = spacy.load('en')
+    elif tokenizer == 'stanford':
+        core_nlp = StanfordCoreNLP('http://localhost:{0}'.format(9000))
+    else:
+        raise ValueError("tokenizer should be either 'spacy' or 'stanford'.")
     verbose = False
     dataset_type =  os.path.basename(input_folder)
     print("Formatting {0} set from BRAT to CONLL... ".format(dataset_type), end='')
@@ -102,10 +139,15 @@ def brat_to_conll(input_folder, output_filepath):
             codecs.open(annotation_filepath, 'w', 'UTF-8').close()
 
         text, entities = get_entities_from_brat(text_filepath, annotation_filepath)
-
-        sentences = get_sentences_and_tokens_from_spacy(text, spacy_nlp)
+        
+        if tokenizer == 'spacy':
+            sentences = get_sentences_and_tokens_from_spacy(text, spacy_nlp)
+        elif tokenizer == 'stanford':
+            sentences = get_sentences_and_tokens_from_stanford(text, core_nlp)
+        
         for sentence in sentences:
-            inside=False
+            inside = False
+            previous_token_label = 'O'
             for token in sentence:
                 token['label'] = 'O'
                 for entity in entities:
@@ -122,12 +164,16 @@ def brat_to_conll(input_folder, output_filepath):
                     gold_label = 'O'
                     inside = False
                 elif inside:
-                    gold_label = 'I-{0}'.format(token['label'])
+                    if token['label'] == previous_token_label:
+                        gold_label = 'I-{0}'.format(token['label'])
+                    else:
+                        gold_label = 'B-{0}'.format(token['label'])
                 else:
                     inside = True
                     gold_label = 'B-{0}'.format(token['label'])
                 if token['end'] == entity['end']:
                     inside = False
+                previous_token_label = token['label']
                 if verbose: print('{0} {1} {2} {3} {4}\n'.format(token['text'], base_filename, token['start'], token['end'], gold_label))
                 output_file.write('{0} {1} {2} {3} {4}\n'.format(token['text'], base_filename, token['start'], token['end'], gold_label))
             if verbose: print('\n')
@@ -135,4 +181,7 @@ def brat_to_conll(input_folder, output_filepath):
 
     output_file.close()
     print('Done.')
-    del spacy_nlp
+    if tokenizer == 'spacy':
+        del spacy_nlp
+    elif tokenizer == 'stanford':
+        del core_nlp
