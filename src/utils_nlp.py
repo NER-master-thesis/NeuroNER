@@ -2,40 +2,41 @@
 Miscellaneous utility functions for natural language processing
 '''
 import codecs
+import os
 import re
 import utils
 
 def load_tokens_from_pretrained_token_embeddings(parameters):
-    file_input = codecs.open(parameters['token_pretrained_embedding_filepath'], 'r', 'UTF-8')
-    count = -1
-    tokens = set()
-    number_of_loaded_word_vectors = 0
-    for cur_line in file_input:
-        count += 1
-        cur_line = cur_line.strip()
-        cur_line = cur_line.split(' ')
-        if len(cur_line)==0:continue
-        token=cur_line[0]
-        tokens.add(token)
-        number_of_loaded_word_vectors += 1
-    file_input.close()
-    return tokens
+        return utils.load_pickle(os.path.join(parameters['embedding_path'],
+                        parameters['embedding_type'],
+                        parameters['language'],
+                        "vocab_word_embeddings_" + str(parameters['embedding_dimension']) + ".p"
+                        ))
 
 def load_pretrained_token_embeddings(parameters):
-    file_input = codecs.open(parameters['token_pretrained_embedding_filepath'], 'r', 'UTF-8')
-    count = -1
+    vocab_dict = load_tokens_from_pretrained_token_embeddings(parameters)
+    file_input = utils.load_pickle(get_embedding_file_path(parameters))
     token_to_vector = {}
-    for cur_line in file_input:
-        count += 1
-        #if count > 1000:break
-        cur_line = cur_line.strip()
-        cur_line = cur_line.split(' ')
-        if len(cur_line)==0:continue
-        token = cur_line[0]
-        vector =cur_line[1:]
-        token_to_vector[token] = vector
-    file_input.close()
+    for key, value in vocab_dict.items():
+        token_to_vector[key] = file_input[value]
     return token_to_vector
+
+def load_fasttext_embeddings(parameters):
+    return utils.load_pickle(os.path.join(parameters['embedding_path'],
+                                       parameters['embedding_type'],
+                                       parameters['language'],
+                                       "wiki."+parameters['language']+".bin"
+                                       ))
+
+def get_embedding_file_path(parameters):
+    return os.path.join(parameters['embedding_path'],
+                        parameters['embedding_type'],
+                        parameters['language'],
+                        "word_embeddings_" + str(parameters['embedding_dimension']) + ".p"
+                        )
+
+
+
 
 def is_token_in_pretrained_embeddings(token, all_pretrained_tokens, parameters):
     return token in all_pretrained_tokens or \
@@ -53,15 +54,26 @@ def get_parsed_conll_output(conll_output_filepath):
                             'recall':float(line[5]),
                             'f1':float(line[7])}
     total_support = 0
-    for line in conll_output[2:]:
-        line = line.split()
-        phi_type = line[0].replace('_', '-')
-        support = int(line[7])
-        total_support += support
-        parsed_output[phi_type] = {'precision': float(line[2]),
-                            'recall':float(line[4]),
-                            'f1':float(line[6]),
-                            'support':support}
+    if len(conll_output[2].split()) == 8:
+        for line in conll_output[2:]:
+            line = line.split()
+            phi_type = line[0].replace('_', '-')
+            support = int(line[7])
+            total_support += support
+            parsed_output[phi_type] = {'precision': float(line[2]),
+                                'recall':float(line[4]),
+                                'f1':float(line[6]),
+                                'support':support}
+    else:
+        for line in conll_output[2:]:
+            line = line.split()
+            phi_type = line[0].replace('_', '-')
+            support = int(line[6])
+            total_support += support
+            parsed_output[phi_type] = {'precision': float(line[1]),
+                                'recall':float(line[3]),
+                                'f1':float(line[5]),
+                                'support':support}
     parsed_output['all']['support'] = total_support
     return parsed_output
 
@@ -69,7 +81,7 @@ def remove_bio_from_label_name(label_name):
     if label_name[:2] in ['B-', 'I-', 'E-', 'S-']:
         new_label_name = label_name[2:]
     else:
-        assert(label_name == 'O')
+        #assert(label_name == 'O')
         new_label_name = label_name
     return new_label_name
 
@@ -161,4 +173,10 @@ def convert_conll_from_bio_to_bioes(input_conll_filepath, output_conll_filepath)
     input_conll_file.close()
     output_conll_file.close()
     print("Done.")
-    
+
+def get_embedding_file_path_fasttext(parameters):
+    return os.path.join(parameters['embedding_path'],
+                                       parameters['embedding_type'],
+                                       parameters['language'],
+                                       "wiki."+parameters['language']+".bin"
+                                       )

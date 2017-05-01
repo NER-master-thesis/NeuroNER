@@ -8,6 +8,9 @@ import time
 import datetime
 import shutil
 
+import pickle
+
+
 def order_dictionary(dictionary, mode, reverse=False):
     '''
     Order a dictionary by 'key' or 'value'.
@@ -117,3 +120,8 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
+
+def load_pickle(file_path):
+    print(file_path)
+    with open(file_path, "rb") as file:
+        return pickle.load(file)

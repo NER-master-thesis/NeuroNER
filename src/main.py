@@ -6,8 +6,14 @@ CUDA_VISIBLE_DEVICES=2 python3.5 main.py &
 CUDA_VISIBLE_DEVICES=3 python3.5 main.py &
 '''
 from __future__ import print_function
+
+import shutil
+
 import tensorflow as tf
 import os
+
+from tqdm import tqdm
+
 import utils
 import numpy as np
 import matplotlib
@@ -26,6 +32,7 @@ import random
 import evaluate
 import configparser
 import train
+import logging
 from pprint import pprint
 from entity_lstm import EntityLSTM
 from tensorflow.contrib.tensorboard.plugins import projector
@@ -56,11 +63,12 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
             parameters[k] = v
         # Ensure that each parameter is cast to the correct type
         if k in ['character_embedding_dimension','character_lstm_hidden_state_dimension','token_embedding_dimension',
-                 'token_lstm_hidden_state_dimension','patience','maximum_number_of_epochs','maximum_training_time','number_of_cpu_threads','number_of_gpus']:
+                 'token_lstm_hidden_state_dimension','patience','maximum_number_of_epochs','maximum_training_time',
+                 'number_of_cpu_threads','number_of_gpus', 'remap_to_unk_count_threshold', 'embedding_dimension']:
             parameters[k] = int(v)
         elif k in ['dropout_rate', 'learning_rate', 'gradient_clipping_value']:
             parameters[k] = float(v)
-        elif k in ['remap_unknown_tokens_to_unk', 'use_character_lstm', 'use_crf', 'train_model', 'use_pretrained_model', 'debug', 'verbose',
+        elif k in ['gru_neuron','remap_unknown_tokens_to_unk', 'use_character_lstm', 'use_crf', 'train_model', 'use_pretrained_model', 'debug', 'verbose',
                  'reload_character_embeddings', 'reload_character_lstm', 'reload_token_embeddings', 'reload_token_lstm', 'reload_feedforward', 'reload_crf',
                  'check_for_lowercase', 'check_for_digits_replaced_with_zeros', 'freeze_token_embeddings', 'load_only_pretrained_token_embeddings']:
             parameters[k] = distutils.util.strtobool(v)
@@ -69,51 +77,10 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
 
 def get_valid_dataset_filepaths(parameters):
     dataset_filepaths = {}
-    dataset_brat_folders = {}
-    for dataset_type in ['train', 'valid', 'test', 'deploy']:
-        dataset_filepaths[dataset_type] = os.path.join(parameters['dataset_text_folder'], '{0}.txt'.format(dataset_type))
-        dataset_brat_folders[dataset_type] = os.path.join(parameters['dataset_text_folder'], dataset_type)
-        dataset_compatible_with_brat_filepath = os.path.join(parameters['dataset_text_folder'], '{0}_compatible_with_brat.txt'.format(dataset_type))
 
-        # Conll file exists
-        if os.path.isfile(dataset_filepaths[dataset_type]) and os.path.getsize(dataset_filepaths[dataset_type]) > 0:
-            # Brat text files exist
-            if os.path.exists(dataset_brat_folders[dataset_type]) and len(glob.glob(os.path.join(dataset_brat_folders[dataset_type], '*.txt'))) > 0:
-
-                # Check compatibility between conll and brat files
-                brat_to_conll.check_brat_annotation_and_text_compatibility(dataset_brat_folders[dataset_type])
-                if os.path.exists(dataset_compatible_with_brat_filepath):
-                    dataset_filepaths[dataset_type] = dataset_compatible_with_brat_filepath
-                conll_to_brat.check_compatibility_between_conll_and_brat_text(dataset_filepaths[dataset_type], dataset_brat_folders[dataset_type])
-
-            # Brat text files do not exist
-            else:
-
-                # Populate brat text and annotation files based on conll file
-                conll_to_brat.conll_to_brat(dataset_filepaths[dataset_type], dataset_compatible_with_brat_filepath, dataset_brat_folders[dataset_type], dataset_brat_folders[dataset_type])
-                dataset_filepaths[dataset_type] = dataset_compatible_with_brat_filepath
-                
-        # Conll file does not exist
-        else:
-
-            # Brat text files exist
-            if os.path.exists(dataset_brat_folders[dataset_type]) and len(glob.glob(os.path.join(dataset_brat_folders[dataset_type], '*.txt'))) > 0:
-                # Populate conll file based on brat files
-                brat_to_conll.brat_to_conll(dataset_brat_folders[dataset_type], dataset_filepaths[dataset_type])
-
-            # Brat text files do not exist
-            else:
-                del dataset_filepaths[dataset_type]
-                del dataset_brat_folders[dataset_type]
-                continue
-        
-        if parameters['tagging_format'] == 'bioes':
-            # Generate conll file with BIOES format
-            bioes_filepath = os.path.join(parameters['dataset_text_folder'], '{0}_bioes.txt'.format(dataset_type))
-            utils_nlp.convert_conll_from_bio_to_bioes(dataset_filepaths[dataset_type], bioes_filepath)
-            dataset_filepaths[dataset_type] = bioes_filepath
-            
-    return dataset_filepaths, dataset_brat_folders
+    for dataset_type in ['train', 'valid', 'test']:
+        dataset_filepaths[dataset_type] = os.path.join(parameters['dataset_'+dataset_type])
+    return dataset_filepaths
 
 def check_parameter_compatiblity(parameters, dataset_filepaths):
     # Check mode of operation
@@ -138,7 +105,7 @@ def check_parameter_compatiblity(parameters, dataset_filepaths):
 def main():
 
     parameters, conf_parameters = load_parameters()
-    dataset_filepaths, dataset_brat_folders = get_valid_dataset_filepaths(parameters)
+    dataset_filepaths = get_valid_dataset_filepaths(parameters)
     check_parameter_compatiblity(parameters, dataset_filepaths)
 
     # Load dataset
@@ -171,7 +138,7 @@ def main():
             results['execution_details']['num_epochs'] = 0
             results['model_options'] = copy.copy(parameters)
 
-            dataset_name = utils.get_basename_without_extension(parameters['dataset_text_folder'])
+            dataset_name = utils.get_basename_without_extension(parameters['dataset_train'])
             model_name = '{0}_{1}'.format(dataset_name, results['execution_details']['time_stamp'])
 
             output_folder=os.path.join('..', 'output')
@@ -188,7 +155,7 @@ def main():
             for dataset_type in dataset_filepaths.keys():
                 tensorboard_log_folders[dataset_type] = os.path.join(stats_graph_folder, 'tensorboard_logs', dataset_type)
                 utils.create_folder_if_not_exists(tensorboard_log_folders[dataset_type])
-            pickle.dump(dataset, open(os.path.join(model_folder, 'dataset.pickle'), 'wb'))
+            #pickle.dump(dataset, open(os.path.join(model_folder, 'dataset.pickle'), 'wb'))
 
             # Instantiate the model
             # graph initialization should be before FileWriter, otherwise the graph will not appear in TensorBoard
@@ -238,7 +205,7 @@ def main():
             previous_best_valid_f1_score = 0
             transition_params_trained = np.random.rand(len(dataset.unique_labels)+2,len(dataset.unique_labels)+2)
             model_saver = tf.train.Saver(max_to_keep=parameters['maximum_number_of_epochs'])  # defaults to saving all variables
-            epoch_number = -1
+            epoch_number = 0
             try:
                 while True:
                     step = 0
@@ -254,12 +221,11 @@ def main():
                         # Train model: loop over all sequences of training set with shuffling
                         sequence_numbers=list(range(len(dataset.token_indices['train'])))
                         random.shuffle(sequence_numbers)
-                        for sequence_number in sequence_numbers:
+                        for sequence_number in tqdm(range(len(sequence_numbers)), "Training", mininterval=1):
                             transition_params_trained = train.train_step(sess, dataset, sequence_number, model, transition_params_trained, parameters)
-                            step += 1
-                            if step % 10 == 0:
-                                print('Training {0:.2f}% done'.format(step/len(sequence_numbers)*100), end='\r', flush=True)
 
+                    # Save model
+                    model_saver.save(sess, os.path.join(model_folder, 'model_{0:05d}.ckpt'.format(epoch_number)))
                     epoch_elapsed_training_time = time.time() - epoch_start_time
                     print('Training completed in {0:.2f} seconds'.format(epoch_elapsed_training_time), flush=True)
 
@@ -268,9 +234,7 @@ def main():
                     # Evaluate model: save and plot results
                     evaluate.evaluate_model(results, dataset, y_pred, y_true, stats_graph_folder, epoch_number, epoch_start_time, output_filepaths, parameters)
 
-                    if parameters['use_pretrained_model'] and not parameters['train_model']:
-                        conll_to_brat.output_brat(output_filepaths, dataset_brat_folders, stats_graph_folder)
-                        break
+
 
                     # Save model
                     model_saver.save(sess, os.path.join(model_folder, 'model_{0:05d}.ckpt'.format(epoch_number)))
@@ -287,7 +251,6 @@ def main():
                     if  valid_f1_score > previous_best_valid_f1_score:
                         bad_counter = 0
                         previous_best_valid_f1_score = valid_f1_score
-                        conll_to_brat.output_brat(output_filepaths, dataset_brat_folders, stats_graph_folder, overwrite=True)
                     else:
                         bad_counter += 1
                     print("The last {0} epochs have not shown improvements on the validation set.".format(bad_counter))
@@ -303,12 +266,23 @@ def main():
             except KeyboardInterrupt:
                 results['execution_details']['keyboard_interrupt'] = True
                 print('Training interrupted')
-
-            print('Finishing the experiment')
-            end_time = time.time()
-            results['execution_details']['train_duration'] = end_time - start_time
-            results['execution_details']['train_end'] = end_time
-            evaluate.save_results(results, stats_graph_folder)
+                # remove the experiment
+                remove_experiment = input("Do you want to remove the experiment? (yes/y/Yes)")
+                if remove_experiment in ["Yes", "yes", "y"]:
+                    shutil.rmtree(stats_graph_folder)
+                    print("Folder removed")
+                else:
+                    print('Finishing the experiment')
+                    end_time = time.time()
+                    results['execution_details']['train_duration'] = end_time - start_time
+                    results['execution_details']['train_end'] = end_time
+                    evaluate.save_results(results, stats_graph_folder)
+            except Exception:
+                logging.exception("")
+                remove_experiment = input("Do you want to remove the experiment? (yes/y/Yes)")
+                if remove_experiment in ["Yes", "yes", "y"]:
+                    shutil.rmtree(stats_graph_folder)
+                    print("Folder removed")
 
     sess.close() # release the session's resources
 

@@ -2,6 +2,8 @@ import os
 import tensorflow as tf
 import numpy as np
 import sklearn.metrics
+from tqdm import tqdm
+
 from evaluate import remap_labels
 from pprint import pprint
 import pickle
@@ -41,7 +43,7 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
     output_file = codecs.open(output_filepath, 'w', 'UTF-8')
     original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', 'UTF-8')
 
-    for i in range(len(dataset.token_indices[dataset_type])):
+    for i in tqdm(range(len(dataset.token_indices[dataset_type]))):
         feed_dict = {
           model.input_token_indices: dataset.token_indices[dataset_type][i],
           model.input_token_character_indices: dataset.character_indices_padded[dataset_type][i],
@@ -49,6 +51,7 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
           model.input_label_indices_vector: dataset.label_vector_indices[dataset_type][i],
           model.dropout_keep_prob: 1.
         }
+
         unary_scores, predictions = sess.run([model.unary_scores, model.predictions], feed_dict)
         if parameters['use_crf']:
             predictions, _ = tf.contrib.crf.viterbi_decode(unary_scores, transition_params_trained)
@@ -90,7 +93,12 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
         if parameters['main_evaluation_mode'] == 'conll':
             conll_evaluation_script = os.path.join('.', 'conlleval')
             conll_output_filepath = '{0}_conll_evaluation.txt'.format(output_filepath)
-            shell_command = 'perl {0} < {1} > {2}'.format(conll_evaluation_script, output_filepath, conll_output_filepath)
+            if "labelled_yelp_tips_th06" in parameters["dataset_train"]:
+                shell_command = 'perl {0} -r < {1} > {2}'.format(conll_evaluation_script, output_filepath, conll_output_filepath)
+            else:
+                shell_command = 'perl {0} < {1} > {2}'.format(conll_evaluation_script, output_filepath,
+                                                                 conll_output_filepath)
+
             os.system(shell_command)
             with open(conll_output_filepath, 'r') as f:
                 classification_report = f.read()

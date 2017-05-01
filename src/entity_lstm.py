@@ -5,6 +5,7 @@ import re
 import time
 import utils_tf
 import utils_nlp
+import fasttext
 
 def bidirectional_LSTM(input, hidden_state_dimension, initializer, sequence_length=None, output_sequence=True):
 
@@ -51,6 +52,55 @@ def bidirectional_LSTM(input, hidden_state_dimension, initializer, sequence_leng
 
     return output
 
+def bidirectional_GRU(input, hidden_state_dimension, initializer, sequence_length=None, output_sequence=True):
+    with tf.variable_scope("bidirectional_gru"):
+        if sequence_length == None:
+            batch_size = 1
+            sequence_length = tf.shape(input)[1]
+            sequence_length = tf.expand_dims(sequence_length, axis=0, name='sequence_length')
+        else:
+            batch_size = tf.shape(sequence_length)[0]
+
+        gru_cell = {}
+        initial_state = {}
+        for direction in ["forward", "backward"]:
+            with tf.variable_scope(direction):
+                # GRU cell
+                gru_cell[direction] = tf.contrib.rnn.GRUCell(hidden_state_dimension)
+                # initial state: http://stackoverflow.com/questions/38441589/tensorflow-rnn-initial-state
+                #initial_cell_state = tf.get_variable("initial_cell_state", shape=[1, hidden_state_dimension],
+                #                                     dtype=tf.float32, initializer=initializer)
+                #initial_output_state = tf.get_variable("initial_output_state", shape=[1, hidden_state_dimension],
+                #                                       dtype=tf.float32, initializer=initializer)
+
+
+                #c_states = tf.tile(initial_cell_state, tf.stack([batch_size, 1]))
+                #h_states = tf.tile(initial_output_state, tf.stack([batch_size, 1]))
+                #initial_state[direction] = gru_cell[direction].zero_state(batch_size, dtype=tf.float32)
+
+        # sequence_length must be provided for tf.nn.bidirectional_dynamic_rnn due to internal bug
+        outputs, final_states = tf.nn.bidirectional_dynamic_rnn(gru_cell["forward"],
+                                                                gru_cell["backward"],
+                                                                input,
+                                                                dtype=tf.float32,
+                                                                sequence_length=sequence_length)
+                                                                #initial_state_fw=initial_state["forward"],
+                                                                #initial_state_bw=initial_state["backward"])
+        if output_sequence == True:
+            outputs_forward, outputs_backward = outputs
+            output = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
+        else:
+            # max pooling
+            #             outputs_forward, outputs_backward = outputs
+            #             output = tf.concat([outputs_forward, outputs_backward], axis=2, name='output_sequence')
+            #             output = tf.reduce_max(output, axis=1, name='output')
+            # last pooling
+            final_states_forward, final_states_backward = final_states
+            output = tf.concat([final_states_forward, final_states_backward], axis=1, name='output')
+
+    return output
+
+
 
 class EntityLSTM(object):
     """
@@ -89,8 +139,15 @@ class EntityLSTM(object):
 
             # Character LSTM layer
             with tf.variable_scope('character_lstm') as vs:
-                character_lstm_output = bidirectional_LSTM(embedded_characters, parameters['character_lstm_hidden_state_dimension'], initializer,
+                if not parameters['gru_neuron']:
+                    character_lstm_output = bidirectional_LSTM(embedded_characters, parameters['character_lstm_hidden_state_dimension'], initializer,
                                                            sequence_length=self.input_token_lengths, output_sequence=False)
+                else:
+                    character_lstm_output = bidirectional_GRU(embedded_characters,
+                                                               parameters['character_lstm_hidden_state_dimension'],
+                                                               initializer,
+                                                               sequence_length=self.input_token_lengths,
+                                                               output_sequence=False)
                 self.character_lstm_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vs.name)
 
 
@@ -98,7 +155,7 @@ class EntityLSTM(object):
         with tf.variable_scope("token_embedding"):
             self.token_embedding_weights = tf.get_variable(
                 "token_embedding_weights",
-                shape=[dataset.vocabulary_size, parameters['token_embedding_dimension']],
+                shape=[dataset.vocabulary_size, parameters['embedding_dimension']],
                 initializer=initializer,
                 trainable=not parameters['freeze_token_embeddings'])
             embedded_tokens = tf.nn.embedding_lookup(self.token_embedding_weights, self.input_token_indices)
@@ -126,15 +183,26 @@ class EntityLSTM(object):
 
         # Token LSTM layer
         with tf.variable_scope('token_lstm') as vs:
-            token_lstm_output = bidirectional_LSTM(token_lstm_input_drop_expanded, parameters['token_lstm_hidden_state_dimension'], initializer, output_sequence=True)
+            if not parameters['gru_neuron']:
+                token_lstm_output = bidirectional_LSTM(token_lstm_input_drop_expanded, parameters['token_lstm_hidden_state_dimension'], initializer, output_sequence=True)
+
+            else:
+                token_lstm_output = bidirectional_GRU(token_lstm_input_drop_expanded, parameters['token_lstm_hidden_state_dimension'], initializer, output_sequence=True)
+
+
             token_lstm_output_squeezed = tf.squeeze(token_lstm_output, axis=0)
             self.token_lstm_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vs.name)
+
+        # Concat the output of lstm with the token representation
+        #token_lstm_output_squeezed = tf.concat([token_lstm_output_squeezed, token_lstm_input_drop], axis=1)
 
         # Needed only if Bidirectional LSTM is used for token level
         with tf.variable_scope("feedforward_after_lstm") as vs:
             W = tf.get_variable(
                 "W",
-                shape=[2 * parameters['token_lstm_hidden_state_dimension'], parameters['token_lstm_hidden_state_dimension']],
+                #shape=[2 * parameters['token_lstm_hidden_state_dimension'] + 2* parameters['character_lstm_hidden_state_dimension']+ parameters['embedding_dimension'], parameters['token_lstm_hidden_state_dimension']],
+                shape=[2 * parameters['token_lstm_hidden_state_dimension'] , parameters['token_lstm_hidden_state_dimension']],
+
                 initializer=initializer)
             b = tf.Variable(tf.constant(0.0, shape=[parameters['token_lstm_hidden_state_dimension']]), name="bias")
             outputs = tf.nn.xw_plus_b(token_lstm_output_squeezed, W, b, name="output_before_tanh")
@@ -228,7 +296,7 @@ class EntityLSTM(object):
 
         grads_and_vars = self.optimizer.compute_gradients(self.loss)
         if parameters['gradient_clipping_value']:
-            grads_and_vars = [(tf.clip_by_value(grad, -parameters['gradient_clipping_value'], parameters['gradient_clipping_value']), var) 
+            grads_and_vars = [(tf.clip_by_value(grad, -parameters['gradient_clipping_value'], parameters['gradient_clipping_value']), var)
                               for grad, var in grads_and_vars]
         # By defining a global_step variable and passing it to the optimizer we allow TensorFlow handle the counting of training steps for us.
         # The global step will be automatically incremented by one every time you execute train_op.
@@ -236,12 +304,13 @@ class EntityLSTM(object):
 
     # TODO: maybe move out of the class?
     def load_pretrained_token_embeddings(self, sess, dataset, parameters):
-        if parameters['token_pretrained_embedding_filepath'] == '':
+        if not parameters['use_pretrained_embeddings']:
             return
         # Load embeddings
         start_time = time.time()
         print('Load token embeddings... ', end='', flush=True)
-        token_to_vector = utils_nlp.load_pretrained_token_embeddings(parameters)
+
+
 
         initial_weights = sess.run(self.token_embedding_weights.read_value())
         number_of_loaded_word_vectors = 0
@@ -250,20 +319,24 @@ class EntityLSTM(object):
         number_of_token_digits_replaced_with_zeros_found = 0
         number_of_token_lowercase_and_digits_replaced_with_zeros_found = 0
         for token in dataset.token_to_index.keys():
-            if token in token_to_vector.keys():
-                initial_weights[dataset.token_to_index[token]] = token_to_vector[token]
+            if parameters['embedding_type'] == 'fasttext':
+                initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
                 number_of_token_original_case_found += 1
-            elif parameters['check_for_lowercase'] and token.lower() in token_to_vector.keys():
-                initial_weights[dataset.token_to_index[token]] = token_to_vector[token.lower()]
-                number_of_token_lowercase_found += 1
-            elif parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token) in token_to_vector.keys():
-                initial_weights[dataset.token_to_index[token]] = token_to_vector[re.sub('\d', '0', token)]
-                number_of_token_digits_replaced_with_zeros_found += 1
-            elif parameters['check_for_lowercase'] and parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token.lower()) in token_to_vector.keys():
-                initial_weights[dataset.token_to_index[token]] = token_to_vector[re.sub('\d', '0', token.lower())]
-                number_of_token_lowercase_and_digits_replaced_with_zeros_found += 1
-            else:
-                continue
+            elif parameters['embedding_type'] == 'glove':
+                if token in dataset.embeddings_matrix:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
+                    number_of_token_original_case_found += 1
+                elif parameters['check_for_lowercase'] and token.lower() in dataset.embeddings_matrix:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token.lower()]
+                    number_of_token_lowercase_found += 1
+                elif parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token) in dataset.embeddings_matrix:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token)]
+                    number_of_token_digits_replaced_with_zeros_found += 1
+                elif parameters['check_for_lowercase'] and parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token.lower()) in dataset.embeddings_matrix:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token.lower())]
+                    number_of_token_lowercase_and_digits_replaced_with_zeros_found += 1
+                else:
+                    continue
             number_of_loaded_word_vectors += 1
         elapsed_time = time.time() - start_time
         print('done ({0:.2f} seconds)'.format(elapsed_time))

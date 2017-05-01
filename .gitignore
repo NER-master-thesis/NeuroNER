@@ -6,3 +6,5 @@
 *.pydevproject
 output/*
 data/*
+to_keep/*
+.DS_Store
