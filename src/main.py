@@ -63,24 +63,25 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
             parameters[k] = v
         # Ensure that each parameter is cast to the correct type
         if k in ['character_embedding_dimension','character_lstm_hidden_state_dimension','token_embedding_dimension',
-                 'token_lstm_hidden_state_dimension','patience','maximum_number_of_epochs','maximum_training_time',
-                 'number_of_cpu_threads','number_of_gpus', 'remap_to_unk_count_threshold', 'embedding_dimension']:
+                 'token_lstm_hidden_state_dimension','patience','maximum_number_of_epochs','maximum_training_time','number_of_cpu_threads','number_of_gpus',
+                 'character_hidden_layer', 'token_hidden_layer', 'embedding_dimension']:
             parameters[k] = int(v)
         elif k in ['dropout_rate', 'learning_rate', 'gradient_clipping_value']:
             parameters[k] = float(v)
-        elif k in ['gru_neuron','remap_unknown_tokens_to_unk', 'use_character_lstm', 'use_crf', 'train_model', 'use_pretrained_model', 'debug', 'verbose',
+        elif k in ['remap_unknown_tokens_to_unk', 'use_character_lstm', 'use_crf', 'train_model', 'use_pretrained_model', 'debug', 'verbose',
                  'reload_character_embeddings', 'reload_character_lstm', 'reload_token_embeddings', 'reload_token_lstm', 'reload_feedforward', 'reload_crf',
-                 'check_for_lowercase', 'check_for_digits_replaced_with_zeros', 'freeze_token_embeddings', 'load_only_pretrained_token_embeddings']:
+                 'check_for_lowercase', 'check_for_digits_replaced_with_zeros', 'freeze_token_embeddings', 'load_only_pretrained_token_embeddings',
+                   'gru_neuron']:
             parameters[k] = distutils.util.strtobool(v)
     if verbose: pprint(parameters)
     return parameters, conf_parameters
 
 def get_valid_dataset_filepaths(parameters):
     dataset_filepaths = {}
+
     for dataset_type in ['train', 'valid', 'test']:
         dataset_filepaths[dataset_type] = os.path.join(parameters['dataset_'+dataset_type])
     return dataset_filepaths
-
 
 def check_parameter_compatiblity(parameters, dataset_filepaths):
     # Check mode of operation
@@ -155,7 +156,7 @@ def main():
             for dataset_type in dataset_filepaths.keys():
                 tensorboard_log_folders[dataset_type] = os.path.join(stats_graph_folder, 'tensorboard_logs', dataset_type)
                 utils.create_folder_if_not_exists(tensorboard_log_folders[dataset_type])
-            #pickle.dump(dataset, open(os.path.join(model_folder, 'dataset.pickle'), 'wb'))
+            pickle.dump(dataset, open(os.path.join(model_folder, 'dataset.pickle'), 'wb'))
 
             # Instantiate the model
             # graph initialization should be before FileWriter, otherwise the graph will not appear in TensorBoard
@@ -224,8 +225,6 @@ def main():
                         for sequence_number in tqdm(range(len(sequence_numbers)), "Training", mininterval=1):
                             transition_params_trained = train.train_step(sess, dataset, sequence_number, model, transition_params_trained, parameters)
 
-                    # Save model
-                    model_saver.save(sess, os.path.join(model_folder, 'model_{0:05d}.ckpt'.format(epoch_number)))
                     epoch_elapsed_training_time = time.time() - epoch_start_time
                     print('Training completed in {0:.2f} seconds'.format(epoch_elapsed_training_time), flush=True)
 

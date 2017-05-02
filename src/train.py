@@ -51,7 +51,6 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
           model.input_label_indices_vector: dataset.label_vector_indices[dataset_type][i],
           model.dropout_keep_prob: 1.
         }
-
         unary_scores, predictions = sess.run([model.unary_scores, model.predictions], feed_dict)
         if parameters['use_crf']:
             predictions, _ = tf.contrib.crf.viterbi_decode(unary_scores, transition_params_trained)

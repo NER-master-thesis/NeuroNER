@@ -87,6 +87,7 @@ class Dataset(object):
             pretraining_dataset = pickle.load(open(os.path.join(pretrained_model_folder, 'dataset.pickle'), 'rb'))
             all_tokens_in_pretraining_dataset = pretraining_dataset.index_to_token.values()
 
+        remap_to_unk_count_threshold = 1
         self.UNK_TOKEN_INDEX = 0
         self.PADDING_CHARACTER_INDEX = 0
         self.tokens_mapped_to_unk = []
@@ -136,30 +137,31 @@ class Dataset(object):
         for token, count in token_count['all'].items():
             if iteration_number == self.UNK_TOKEN_INDEX: iteration_number += 1
 
-
-            # with fasttext, all the words have an embeddings representation, even out-of-vocabulary words
-            if parameters['embedding_type'] =='glove' and \
-               parameters['remap_unknown_tokens_to_unk'] == 1 and \
-               (token_count['train'][token] == 0 or \
-               parameters['load_only_pretrained_token_embeddings']) and \
-               not utils_nlp.is_token_in_pretrained_embeddings(token, all_pretrained_tokens, parameters) and \
-               token not in all_tokens_in_pretraining_dataset:
-
+            if parameters['remap_unknown_tokens_to_unk'] == 1 and \
+                (token_count['train'][token] == 0 or \
+                parameters['load_only_pretrained_token_embeddings']) and \
+                not utils_nlp.is_token_in_pretrained_embeddings(token, all_pretrained_tokens, parameters) and \
+                token not in all_tokens_in_pretraining_dataset:
                 if self.verbose: print("token: {0}".format(token))
                 if self.verbose: print("token.lower(): {0}".format(token.lower()))
                 if self.verbose: print("re.sub('\d', '0', token.lower()): {0}".format(re.sub('\d', '0', token.lower())))
-                token_to_index[token] =  self.UNK_TOKEN_INDEX
-                number_of_unknown_tokens += 1
-                self.tokens_mapped_to_unk.append(token)
+                if parameters['embedding_type'] == 'glove':
+                    token_to_index[token] =  self.UNK_TOKEN_INDEX
+                    number_of_unknown_tokens += 1
+                    self.tokens_mapped_to_unk.append(token)
+                elif parameters['embedding_type'] == 'fasttext':
+                    token_to_index[token] = iteration_number
+                    iteration_number += 1
+                else:
+                    raise AssertionError("Embedding type not recognized")
             else:
                 token_to_index[token] = iteration_number
                 iteration_number += 1
-
         if self.verbose: print("number_of_unknown_tokens: {0}".format(number_of_unknown_tokens))
 
         infrequent_token_indices = []
         for token, count in token_count['train'].items():
-            if 0 < count <= parameters['remap_to_unk_count_threshold']:
+            if 0 < count <= remap_to_unk_count_threshold:
                 infrequent_token_indices.append(token_to_index[token])
         if self.verbose: print("len(token_count['train']): {0}".format(len(token_count['train'])))
         if self.verbose: print("len(infrequent_token_indices): {0}".format(len(infrequent_token_indices)))
@@ -167,19 +169,19 @@ class Dataset(object):
         # Ensure that both B- and I- versions exist for each label
         # labels_without_bio = set()
         # for label in label_count['all'].keys():
-        #     new_label = utils_nlp.remove_bio_from_label_name(label)
-        #     labels_without_bio.add(new_label)
+        #    new_label = utils_nlp.remove_bio_from_label_name(label)
+        #    labels_without_bio.add(new_label)
         # for label in labels_without_bio:
-        #     if label == 'O':
-        #         continue
-        #     if parameters['tagging_format'] == 'bioes':
-        #         prefixes = ['B-', 'I-', 'E-', 'S-']
-        #     else:
-        #         prefixes = ['B-', 'I-']
-        #     for prefix in prefixes:
-        #         l = prefix + label
-        #         if l not in label_count['all']:
-        #             label_count['all'][l] = 0
+        #    if label == 'O':
+        #        continue
+        #    if parameters['tagging_format'] == 'bioes':
+        #        prefixes = ['B-', 'I-', 'E-', 'S-']
+        #    else:
+        #        prefixes = ['B-', 'I-']
+        #    for prefix in prefixes:
+        #        l = prefix + label
+        #        if l not in label_count['all']:
+        #            label_count['all'][l] = 0
         label_count['all'] = utils.order_dictionary(label_count['all'], 'key', reverse = False)
 
         if parameters['use_pretrained_model']:
@@ -267,10 +269,6 @@ class Dataset(object):
         if self.verbose: print('character_indices[\'train\'][0][0:10]: {0}'.format(character_indices['train'][0][0:10]))
         if self.verbose: print('character_indices_padded[\'train\'][0][0:10]: {0}'.format(character_indices_padded['train'][0][0:10]))
 
-        # Vectorize the labels
-        # [Numpy 1-hot array](http://stackoverflow.com/a/42263603/395857)
-        label_binarizer = sklearn.preprocessing.LabelBinarizer()
-        label_binarizer.fit(range(max(index_to_label.keys())+1))
         label_vector_indices = {}
         for dataset_type in dataset_filepaths.keys():
             label_vector_indices[dataset_type] = []
@@ -281,7 +279,6 @@ class Dataset(object):
                     vector[indice] = 1
                     vector_sequence.append(vector)
                 label_vector_indices[dataset_type].append(vector_sequence)
-                #label_vector_indices[dataset_type].append(label_binarizer.transform(label_indices_sequence))
 
         if self.verbose: print('label_vector_indices[\'train\'][0:2]: {0}'.format(label_vector_indices['train'][0:2]))
 
@@ -324,7 +321,6 @@ class Dataset(object):
         if self.verbose: print('self.unique_labels_of_interest: {0}'.format(self.unique_labels_of_interest))
         if self.verbose: print('self.unique_label_indices_of_interest: {0}'.format(self.unique_label_indices_of_interest))
 
-        self.embeddings_matrix = {}
         if parameters["embedding_type"] == "glove":
             self.embeddings_matrix = utils_nlp.load_pretrained_token_embeddings(parameters)
         elif parameters["embedding_type"] == "fasttext":
