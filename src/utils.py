@@ -9,7 +9,7 @@ import datetime
 import shutil
 
 import pickle
-
+import numpy as np
 
 def order_dictionary(dictionary, mode, reverse=False):
     '''
@@ -59,13 +59,6 @@ def merge_dictionaries(*dict_args):
         result.update(dictionary)
     return result
 
-def pad_list(old_list, padding_size, padding_value):
-    '''
-    http://stackoverflow.com/questions/3438756/some-built-in-to-pad-a-list-in-python
-    Example: pad_list([6,2,3], 5, 0) returns [6,2,3,0,0]
-    '''
-    assert padding_size >= len(old_list)
-    return old_list + [padding_value] * (padding_size-len(old_list))
 
 def get_basename_without_extension(filepath):
     '''
@@ -125,3 +118,45 @@ def load_pickle(file_path):
     print(file_path)
     with open(file_path, "rb") as file:
         return pickle.load(file)
+
+def pad_list(old_list, padding_size, padding_value):
+    '''
+    http://stackoverflow.com/questions/3438756/some-built-in-to-pad-a-list-in-python
+    Example: pad_list([6,2,3], 5, 0) returns [6,2,3,0,0]
+    '''
+    assert padding_size >= len(old_list), "padding_size = " + str(padding_size) + "  len(old_list) = " + str(len(old_list))
+    return old_list + [padding_value] * (padding_size-len(old_list))
+
+def pad_batch(dataset, sequence_number, dataset_type):
+    batch = {}
+
+    batch_token_indices_sequence = np.array(dataset.token_indices[dataset_type])[sequence_number]
+    batch['sequence_lengths'] = np.array(dataset.sequence_lengths[dataset_type])[sequence_number]
+    max_sequence_lengths = max(np.array(dataset.sequence_lengths[dataset_type])[sequence_number])
+    batch['token_indices_padded'] = [pad_list(token_indices_sequence, max_sequence_lengths, dataset.PADDING_TOKEN_INDEX)
+                                         for token_indices_sequence in batch_token_indices_sequence]
+
+    label_vector_indices = np.array(dataset.label_vector_indices[dataset_type])[sequence_number]
+    batch['label_vector_indices'] = [pad_list(label_vector, max_sequence_lengths, dataset.PADDING_LABEL_VECTOR)
+                                         for label_vector in label_vector_indices]
+    label_indices = np.array(dataset.label_indices[dataset_type])[sequence_number]
+    batch['label_indices'] = [pad_list(label, max_sequence_lengths, dataset.PADDING_LABEL_INDEX)
+                                     for label in label_indices]
+
+
+
+    batch_character_indices = np.array(dataset.character_indices[dataset_type])[sequence_number]
+    longest_token_length_in_sequence = max(np.array(dataset.longest_token_length_in_sequence[dataset_type])[sequence_number])
+    character_indices = [[pad_list(temp_token_indices, longest_token_length_in_sequence, dataset.PADDING_CHARACTER_INDEX)
+                                                        for temp_token_indices in character_indices ] for character_indices in batch_character_indices]
+
+
+    batch['character_indices_padded'] = [pad_list(character_indice, max_sequence_lengths, [0] * longest_token_length_in_sequence)
+                                     for character_indice in character_indices]
+
+    batch_token_lengths = np.array(dataset.token_lengths[dataset_type])[sequence_number]
+    batch_token_lengths = [pad_list(token_length, max_sequence_lengths, 0)
+      for token_length in batch_token_lengths]
+    batch['token_lengths'] = batch_token_lengths
+
+    return batch

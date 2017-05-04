@@ -88,15 +88,20 @@ class Dataset(object):
             all_tokens_in_pretraining_dataset = pretraining_dataset.index_to_token.values()
 
         remap_to_unk_count_threshold = 1
-        self.UNK_TOKEN_INDEX = 0
         self.PADDING_CHARACTER_INDEX = 0
+        self.PADDING_TOKEN_INDEX = 1
+        self.UNK_TOKEN_INDEX = 0
+        self.PADDING_LABEL_INDEX = 0
         self.tokens_mapped_to_unk = []
         self.UNK = 'UNK'
+        self.PAD = 'PAD'
         self.unique_labels = []
         labels = {}
         tokens = {}
         characters = {}
         token_lengths = {}
+        sequence_lengths = {}
+        longest_token_length_in_sequence = {}
         label_count = {}
         token_count = {}
         character_count = {}
@@ -135,7 +140,7 @@ class Dataset(object):
         if self.verbose: print("parameters['remap_unknown_tokens_to_unk']: {0}".format(parameters['remap_unknown_tokens_to_unk']))
         if self.verbose: print("len(token_count['train'].keys()): {0}".format(len(token_count['train'].keys())))
         for token, count in token_count['all'].items():
-            if iteration_number == self.UNK_TOKEN_INDEX: iteration_number += 1
+            if iteration_number == self.UNK_TOKEN_INDEX or iteration_number == self.PADDING_TOKEN_INDEX : iteration_number += 1
 
             if parameters['remap_unknown_tokens_to_unk'] == 1 and \
                 (token_count['train'][token] == 0 or \
@@ -195,7 +200,9 @@ class Dataset(object):
         else:
             label_to_index = {}
             iteration_number = 0
+            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
             for label, count in label_count['all'].items():
+                if iteration_number == self.PADDING_LABEL_INDEX: iteration_number +=1
                 label_to_index[label] = iteration_number
                 iteration_number += 1
                 self.unique_labels.append(label)
@@ -241,22 +248,25 @@ class Dataset(object):
         token_indices = {}
         label_indices = {}
         character_indices = {}
-        character_indices_padded = {}
+        #character_indices_padded = {}
         for dataset_type in dataset_filepaths.keys():
             token_indices[dataset_type] = []
             characters[dataset_type] = []
             character_indices[dataset_type] = []
             token_lengths[dataset_type] = []
-            character_indices_padded[dataset_type] = []
+            sequence_lengths[dataset_type] = []
+            longest_token_length_in_sequence[dataset_type] = []
+            #character_indices_padded[dataset_type] = []
             for token_sequence in tokens[dataset_type]:
                 token_indices[dataset_type].append([token_to_index[token] for token in token_sequence])
                 characters[dataset_type].append([list(token) for token in token_sequence])
                 character_indices[dataset_type].append([[character_to_index[character] for character in token] for token in token_sequence])
                 token_lengths[dataset_type].append([len(token) for token in token_sequence])
+                sequence_lengths[dataset_type].append(len(token_sequence))
+                longest_token_length_in_sequence[dataset_type].append(max(token_lengths[dataset_type][-1]))
 
-                longest_token_length_in_sequence = max(token_lengths[dataset_type][-1])
-                character_indices_padded[dataset_type].append([ utils.pad_list(temp_token_indices, longest_token_length_in_sequence, self.PADDING_CHARACTER_INDEX)
-                                                                for temp_token_indices in character_indices[dataset_type][-1]])
+                #character_indices_padded[dataset_type].append([ utils.pad_list(temp_token_indices, longest_token_length_in_sequence, self.PADDING_CHARACTER_INDEX)
+                #                                                for temp_token_indices in character_indices[dataset_type][-1]])
 
             label_indices[dataset_type] = []
             for label_sequence in labels[dataset_type]:
@@ -267,9 +277,12 @@ class Dataset(object):
         if self.verbose: print('token_indices[\'train\'][0:10]: {0}'.format(token_indices['train'][0:10]))
         if self.verbose: print('label_indices[\'train\'][0:10]: {0}'.format(label_indices['train'][0:10]))
         if self.verbose: print('character_indices[\'train\'][0][0:10]: {0}'.format(character_indices['train'][0][0:10]))
-        if self.verbose: print('character_indices_padded[\'train\'][0][0:10]: {0}'.format(character_indices_padded['train'][0][0:10]))
+        #if self.verbose: print('character_indices_padded[\'train\'][0][0:10]: {0}'.format(character_indices_padded['train'][0][0:10]))
 
         label_vector_indices = {}
+        vector = [0] * (max(index_to_label.keys()) + 1)
+        vector[self.PADDING_LABEL_INDEX] = 1
+        self.PADDING_LABEL_VECTOR = vector
         for dataset_type in dataset_filepaths.keys():
             label_vector_indices[dataset_type] = []
             for label_indices_sequence in label_indices[dataset_type]:
@@ -287,11 +300,13 @@ class Dataset(object):
         self.index_to_token = index_to_token
         self.token_indices = token_indices
         self.label_indices = label_indices
-        self.character_indices_padded = character_indices_padded
+        #self.character_indices_padded = character_indices_padded
         self.index_to_character = index_to_character
         self.character_to_index = character_to_index
         self.character_indices = character_indices
         self.token_lengths = token_lengths
+        self.sequence_lengths = sequence_lengths
+        self.longest_token_length_in_sequence = longest_token_length_in_sequence
         self.characters = characters
         self.tokens = tokens
         self.labels = labels
