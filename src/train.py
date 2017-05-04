@@ -52,9 +52,10 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
     output_filepath = os.path.join(stats_graph_folder, '{1:03d}_{0}.txt'.format(dataset_type,epoch_number))
     output_file = codecs.open(output_filepath, 'w', 'UTF-8')
     original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', 'UTF-8')
+    sequence_numbers = list(range(len(dataset.token_indices['train'])))
 
     for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size'])):
-        sequence_number = list(range(i,i+parameters['batch_size']))
+        sequence_number = sequence_number[i: i+parameters['batch_size']]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
 
         feed_dict = {
