@@ -135,8 +135,7 @@ class Dataset(object):
 
         token_to_index = {}
         token_to_index[self.UNK] = self.UNK_TOKEN_INDEX
-        token_to_index["PAD_TOKEN"] = self.PADDING_TOKEN_INDEX
-        iteration_number = self.PADDING_TOKEN_INDEX
+        iteration_number = 0
         number_of_unknown_tokens = 0
         if self.verbose: print("parameters['remap_unknown_tokens_to_unk']: {0}".format(parameters['remap_unknown_tokens_to_unk']))
         if self.verbose: print("len(token_count['train'].keys()): {0}".format(len(token_count['train'].keys())))
@@ -201,6 +200,7 @@ class Dataset(object):
         else:
             label_to_index = {}
             iteration_number = 0
+            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
             for label, count in label_count['all'].items():
                 if iteration_number == self.PADDING_LABEL_INDEX: iteration_number +=1
                 label_to_index[label] = iteration_number

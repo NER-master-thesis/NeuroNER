@@ -128,7 +128,6 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
         else:
             new_y_pred, new_y_true, new_label_indices, new_label_names, _, _ = remap_labels(all_predictions, all_y_true, dataset, parameters['main_evaluation_mode'])
             print(sklearn.metrics.classification_report(new_y_true, new_y_pred, digits=4, labels=new_label_indices, target_names=new_label_names))
-    print(all_predictions)
     return all_predictions, all_y_true, output_filepath
 
 
