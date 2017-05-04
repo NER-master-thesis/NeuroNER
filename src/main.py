@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 import utils
 import numpy as np
+np.random.seed(0)
 import matplotlib
 import copy
 import distutils.util
@@ -29,6 +30,7 @@ matplotlib.use('Agg')
 import dataset as ds
 import time
 import random
+random.seed(0)
 import evaluate
 import configparser
 import train
@@ -64,7 +66,7 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
         # Ensure that each parameter is cast to the correct type
         if k in ['character_embedding_dimension','character_lstm_hidden_state_dimension','token_embedding_dimension',
                  'token_lstm_hidden_state_dimension','patience','maximum_number_of_epochs','maximum_training_time','number_of_cpu_threads','number_of_gpus',
-                 'character_hidden_layer', 'token_hidden_layer', 'embedding_dimension']:
+                 'character_hidden_layer', 'token_hidden_layer', 'embedding_dimension', 'batch_size']:
             parameters[k] = int(v)
         elif k in ['dropout_rate', 'learning_rate', 'gradient_clipping_value']:
             parameters[k] = float(v)
@@ -104,7 +106,6 @@ def check_parameter_compatiblity(parameters, dataset_filepaths):
         parameters['gradient_clipping_value'] = abs(parameters['gradient_clipping_value'])
     
 def main():
-
     parameters, conf_parameters = load_parameters()
     dataset_filepaths = get_valid_dataset_filepaths(parameters)
     check_parameter_compatiblity(parameters, dataset_filepaths)
@@ -174,10 +175,11 @@ def main():
             token_list_file_path = os.path.join(model_folder, 'tensorboard_metadata_tokens.tsv')
             tensorboard_token_embeddings.metadata_path = os.path.relpath(token_list_file_path, '..')
 
-            tensorboard_character_embeddings = embeddings_projector_config.embeddings.add()
-            tensorboard_character_embeddings.tensor_name = model.character_embedding_weights.name
-            character_list_file_path = os.path.join(model_folder, 'tensorboard_metadata_characters.tsv')
-            tensorboard_character_embeddings.metadata_path = os.path.relpath(character_list_file_path, '..')
+            if parameters['use_character_lstm']:
+                tensorboard_character_embeddings = embeddings_projector_config.embeddings.add()
+                tensorboard_character_embeddings.tensor_name = model.character_embedding_weights.name
+                character_list_file_path = os.path.join(model_folder, 'tensorboard_metadata_characters.tsv')
+                tensorboard_character_embeddings.metadata_path = os.path.relpath(character_list_file_path, '..')
 
             projector.visualize_embeddings(embedding_writer, embeddings_projector_config)
 
@@ -187,13 +189,14 @@ def main():
                 token_list_file.write('{0}\n'.format(dataset.index_to_token[token_index]))
             token_list_file.close()
 
-            character_list_file = codecs.open(character_list_file_path,'w', 'UTF-8')
-            for character_index in range(dataset.alphabet_size):
-                if character_index == dataset.PADDING_CHARACTER_INDEX:
-                    character_list_file.write('PADDING\n')
-                else:
-                    character_list_file.write('{0}\n'.format(dataset.index_to_character[character_index]))
-            character_list_file.close()
+            if parameters['use_character_lstm']:
+                character_list_file = codecs.open(character_list_file_path,'w', 'UTF-8')
+                for character_index in range(dataset.alphabet_size):
+                    if character_index == dataset.PADDING_CHARACTER_INDEX:
+                        character_list_file.write('PADDING\n')
+                    else:
+                        character_list_file.write('{0}\n'.format(dataset.index_to_character[character_index]))
+                character_list_file.close()
 
 
             # Initialize the model
@@ -204,7 +207,7 @@ def main():
             # Start training + evaluation loop. Each iteration corresponds to 1 epoch.
             bad_counter = 0 # number of epochs with no improvement on the validation test in terms of F1-score
             previous_best_valid_f1_score = 0
-            transition_params_trained = np.random.rand(len(dataset.unique_labels)+2,len(dataset.unique_labels)+2)
+            transition_params_trained = np.random.rand(len(dataset.unique_labels),len(dataset.unique_labels))  #TODO np.random.rand(len(dataset.unique_labels)+2,len(dataset.unique_labels)+2)
             model_saver = tf.train.Saver(max_to_keep=parameters['maximum_number_of_epochs'])  # defaults to saving all variables
             epoch_number = 0
             try:
@@ -222,7 +225,9 @@ def main():
                         # Train model: loop over all sequences of training set with shuffling
                         sequence_numbers=list(range(len(dataset.token_indices['train'])))
                         random.shuffle(sequence_numbers)
-                        for sequence_number in tqdm(range(len(sequence_numbers)), "Training", mininterval=1):
+
+                        for i in tqdm(range(0,len(sequence_numbers), parameters['batch_size']), "Training", mininterval=1):
+                            sequence_number = sequence_numbers[i: i + parameters['batch_size']]
                             transition_params_trained = train.train_step(sess, dataset, sequence_number, model, transition_params_trained, parameters)
 
                     epoch_elapsed_training_time = time.time() - epoch_start_time
