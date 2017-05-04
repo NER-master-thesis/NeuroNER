@@ -52,10 +52,10 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
     output_filepath = os.path.join(stats_graph_folder, '{1:03d}_{0}.txt'.format(dataset_type,epoch_number))
     output_file = codecs.open(output_filepath, 'w', 'UTF-8')
     original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', 'UTF-8')
-    sequence_numbers = list(range(len(dataset.token_indices['train'])))
+    sequence_numbers = list(range(len(dataset.token_indices[dataset_type])))
 
-    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size'])):
-        sequence_number = sequence_number[i: i+parameters['batch_size']]
+    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), 10*parameters['batch_size'])):
+        sequence_number = sequence_numbers[i: i+ 10*parameters['batch_size']]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
 
         feed_dict = {
@@ -107,8 +107,7 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
             output_file.write(output_string+'\n')
 
             all_predictions.extend(predictions)
-            all_y_true.extend(np.array(dataset.label_indices[dataset_type])[i])
-
+            all_y_true.extend(np.array(dataset.label_indices[dataset_type])[j])
     output_file.close()
     original_conll_file.close()
 
@@ -129,7 +128,7 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
         else:
             new_y_pred, new_y_true, new_label_indices, new_label_names, _, _ = remap_labels(all_predictions, all_y_true, dataset, parameters['main_evaluation_mode'])
             print(sklearn.metrics.classification_report(new_y_true, new_y_pred, digits=4, labels=new_label_indices, target_names=new_label_names))
-
+    print(all_predictions)
     return all_predictions, all_y_true, output_filepath
 
 
@@ -138,7 +137,7 @@ def predict_labels(sess, model, transition_params_trained, parameters, dataset, 
     y_pred = {}
     y_true = {}
     output_filepaths = {}
-    for dataset_type in ['train', 'valid', 'test']:
+    for dataset_type in ['valid', 'test']:#['train', 'valid', 'test']:
         if dataset_type not in dataset_filepaths.keys():
             continue
         prediction_output = prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths)

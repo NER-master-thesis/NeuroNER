@@ -88,11 +88,13 @@ class Dataset(object):
             all_tokens_in_pretraining_dataset = pretraining_dataset.index_to_token.values()
 
         remap_to_unk_count_threshold = 1
-        self.UNK_TOKEN_INDEX = 0
         self.PADDING_CHARACTER_INDEX = 0
-        self.PADDING_TOKEN_INDEX = 0
+        self.PADDING_TOKEN_INDEX = 1
+        self.UNK_TOKEN_INDEX = 0
+        self.PADDING_LABEL_INDEX = 0
         self.tokens_mapped_to_unk = []
         self.UNK = 'UNK'
+        self.PAD = 'PAD'
         self.unique_labels = []
         labels = {}
         tokens = {}
@@ -133,7 +135,6 @@ class Dataset(object):
 
         token_to_index = {}
         token_to_index[self.UNK] = self.UNK_TOKEN_INDEX
-        self.PADDING_TOKEN_INDEX = self.UNK_TOKEN_INDEX + 1
         token_to_index["PAD_TOKEN"] = self.PADDING_TOKEN_INDEX
         iteration_number = self.PADDING_TOKEN_INDEX
         number_of_unknown_tokens = 0
@@ -199,10 +200,9 @@ class Dataset(object):
             label_to_index = pretraining_dataset.label_to_index.copy()
         else:
             label_to_index = {}
-            self.PADDING_LABEL_INDEX = 0
-            label_to_index["PAD"] = self.PADDING_LABEL_INDEX
-            iteration_number = 1
+            iteration_number = 0
             for label, count in label_count['all'].items():
+                if iteration_number == self.PADDING_LABEL_INDEX: iteration_number +=1
                 label_to_index[label] = iteration_number
                 iteration_number += 1
                 self.unique_labels.append(label)
