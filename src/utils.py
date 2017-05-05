@@ -140,7 +140,7 @@ def pad_batch(dataset, sequence_number, dataset_type):
     batch['label_vector_indices'] = [pad_list(label_vector, max_sequence_lengths, dataset.PADDING_LABEL_VECTOR)
                                          for label_vector in label_vector_indices]
     label_indices = np.array(dataset.label_indices[dataset_type])[sequence_number]
-    batch['label_indices'] = [pad_list(label, max_sequence_lengths, dataset.label_to_index['O']) # TODO remove this shit dataset.label_to_index['O']
+    batch['label_indices'] = [pad_list(label, max_sequence_lengths, dataset.PADDING_LABEL_INDEX)
                                      for label in label_indices]
 
 

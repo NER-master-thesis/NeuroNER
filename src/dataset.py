@@ -55,7 +55,7 @@ class Dataset(object):
                 for character in token:
                     character_count[character] += 1
 
-                if self.debug and line_count > 200: break# for debugging purposes
+                if self.debug and line_count > 1000: break# for debugging purposes
 
             if len(new_token_sequence) > 0:
                 labels.append(new_label_sequence)
@@ -91,10 +91,9 @@ class Dataset(object):
         self.PADDING_CHARACTER_INDEX = 0
         self.PADDING_TOKEN_INDEX = 1
         self.UNK_TOKEN_INDEX = 0
-        self.PADDING_LABEL_INDEX = 0
         self.tokens_mapped_to_unk = []
         self.UNK = 'UNK'
-        self.PAD = 'O' # TODO replace O by PAD and find why model predict PAD
+        self.PAD = 'PAD'
         self.unique_labels = []
         labels = {}
         tokens = {}
@@ -200,13 +199,12 @@ class Dataset(object):
         else:
             label_to_index = {}
             iteration_number = 0
-            #label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
             for label, count in label_count['all'].items():
-                if iteration_number == self.PADDING_LABEL_INDEX: iteration_number +=1
                 label_to_index[label] = iteration_number
                 iteration_number += 1
                 self.unique_labels.append(label)
-
+            self.PADDING_LABEL_INDEX = len(self.unique_labels)
+            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
         if self.verbose: print('self.unique_labels: {0}'.format(self.unique_labels))
 
         character_to_index = {}
@@ -280,9 +278,7 @@ class Dataset(object):
         #if self.verbose: print('character_indices_padded[\'train\'][0][0:10]: {0}'.format(character_indices_padded['train'][0][0:10]))
 
         label_vector_indices = {}
-        vector = [0] * (max(index_to_label.keys()) + 1)
-        vector[self.PADDING_LABEL_INDEX] = 1
-        self.PADDING_LABEL_VECTOR = vector
+        self.PADDING_LABEL_VECTOR = [0] * (self.PADDING_LABEL_INDEX)
         for dataset_type in dataset_filepaths.keys():
             label_vector_indices[dataset_type] = []
             for label_indices_sequence in label_indices[dataset_type]:
@@ -316,7 +312,7 @@ class Dataset(object):
         if self.verbose: print("len(self.token_to_index): {0}".format(len(self.token_to_index)))
         if self.verbose: print("len(self.index_to_token): {0}".format(len(self.index_to_token)))
 
-        self.number_of_classes = max(self.index_to_label.keys()) + 1
+        self.number_of_classes = len(set(label_count['train'].keys()))
         self.vocabulary_size = max(self.index_to_token.keys()) + 1
         self.alphabet_size = max(self.index_to_character.keys()) + 1
         if self.verbose: print("self.number_of_classes: {0}".format(self.number_of_classes))

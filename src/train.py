@@ -56,8 +56,8 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
 
 
 
-    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), 200)):
-        sequence_number = sequence_numbers[i: i+ 200]
+    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), 10*parameters['batch_size'])):
+        sequence_number = sequence_numbers[i: i+ 10*parameters['batch_size']]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
 
         feed_dict = {
