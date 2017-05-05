@@ -200,7 +200,7 @@ class Dataset(object):
         else:
             label_to_index = {}
             iteration_number = 0
-            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
+            #label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
             for label, count in label_count['all'].items():
                 if iteration_number == self.PADDING_LABEL_INDEX: iteration_number +=1
                 label_to_index[label] = iteration_number

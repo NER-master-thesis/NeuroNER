@@ -54,8 +54,10 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
     original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', 'UTF-8')
     sequence_numbers = list(range(len(dataset.token_indices[dataset_type])))
 
-    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), 10*parameters['batch_size'])):
-        sequence_number = sequence_numbers[i: i+ 10*parameters['batch_size']]
+
+
+    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), 200)):
+        sequence_number = sequence_numbers[i: i+ 200]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
 
         feed_dict = {
@@ -136,7 +138,7 @@ def predict_labels(sess, model, transition_params_trained, parameters, dataset, 
     y_pred = {}
     y_true = {}
     output_filepaths = {}
-    for dataset_type in ['valid', 'test']:#['train', 'valid', 'test']:
+    for dataset_type in ['train', 'valid', 'test']:
         if dataset_type not in dataset_filepaths.keys():
             continue
         prediction_output = prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths)
