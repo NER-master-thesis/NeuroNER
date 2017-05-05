@@ -94,7 +94,7 @@ class Dataset(object):
         self.PADDING_LABEL_INDEX = 0
         self.tokens_mapped_to_unk = []
         self.UNK = 'UNK'
-        self.PAD = 'PAD'
+        self.PAD = 'O' # TODO replace O by PAD and find why model predict PAD
         self.unique_labels = []
         labels = {}
         tokens = {}

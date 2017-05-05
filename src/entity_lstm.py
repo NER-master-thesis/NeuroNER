@@ -291,7 +291,9 @@ class EntityLSTM(object):
                 self.unary_scores = tf.reshape(self.unary_scores, [-1,dataset.number_of_classes])
                 self.input_label_indices_vector = tf.reshape(self.input_label_indices_vector, [-1,dataset.number_of_classes])
                 losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.unary_scores, labels=self.input_label_indices_vector, name='softmax')
-                self.loss =  tf.reduce_mean(losses, name='cross_entropy_mean_loss')
+                mask = tf.sequence_mask(self.input_sequence_lengths)
+                losses = tf.boolean_mask(losses, mask)
+                self.loss = tf.reduce_mean(losses, name='cross_entropy_mean_loss')
             with tf.variable_scope("accuracy"):
                 correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_label_indices_vector, 1))
                 self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
