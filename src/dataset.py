@@ -190,6 +190,8 @@ class Dataset(object):
                 iteration_number += 1
                 self.unique_labels.append(label)
             self.PADDING_LABEL_INDEX = len(self.unique_labels)
+            self.unique_labels.append(self.PAD)
+            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
         if self.verbose: print('self.unique_labels: {0}'.format(self.unique_labels))
 
         character_to_index = {}
@@ -264,7 +266,7 @@ class Dataset(object):
         #if self.verbose: print('character_indices_padded[\'train\'][0][0:10]: {0}'.format(character_indices_padded['train'][0][0:10]))
 
         label_vector_indices = {}
-        self.PADDING_LABEL_VECTOR = [0] * (self.PADDING_LABEL_INDEX)
+        self.PADDING_LABEL_VECTOR = [0] * len(self.unique_labels)
         for dataset_type in dataset_filepaths.keys():
             label_vector_indices[dataset_type] = []
             for label_indices_sequence in label_indices[dataset_type]:
@@ -298,7 +300,7 @@ class Dataset(object):
         if self.verbose: print("len(self.token_to_index): {0}".format(len(self.token_to_index)))
         if self.verbose: print("len(self.index_to_token): {0}".format(len(self.index_to_token)))
 
-        self.number_of_classes = len(set(label_count['train'].keys()))
+        self.number_of_classes = len(self.unique_labels)
         self.vocabulary_size = len(self.index_to_token)
         self.alphabet_size = len(self.character_to_index)
         if self.verbose: print("self.number_of_classes: {0}".format(self.number_of_classes))

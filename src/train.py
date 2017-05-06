@@ -138,7 +138,7 @@ def predict_labels(sess, model, transition_params_trained, parameters, dataset, 
     y_pred = {}
     y_true = {}
     output_filepaths = {}
-    for dataset_type in ['train', 'valid', 'test']:
+    for dataset_type in ["valid", "test"]: #['train', 'valid', 'test']:
         if dataset_type not in dataset_filepaths.keys():
             continue
         prediction_output = prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths)
