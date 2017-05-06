@@ -55,7 +55,7 @@ class Dataset(object):
                 for character in token:
                     character_count[character] += 1
 
-                if self.debug and line_count > 1000: break# for debugging purposes
+                if self.debug and line_count > 100: break# for debugging purposes
 
             if len(new_token_sequence) > 0:
                 labels.append(new_label_sequence)
@@ -92,8 +92,8 @@ class Dataset(object):
         self.PADDING_TOKEN_INDEX = 1
         self.UNK_TOKEN_INDEX = 0
         self.tokens_mapped_to_unk = []
-        self.UNK = 'UNK'
-        self.PAD = 'PAD'
+        self.UNK = '<UNK>'
+        self.PAD = '<PAD>'
         self.unique_labels = []
         labels = {}
         tokens = {}
@@ -134,12 +134,14 @@ class Dataset(object):
 
         token_to_index = {}
         token_to_index[self.UNK] = self.UNK_TOKEN_INDEX
+        token_to_index[self.PAD] = self.PADDING_TOKEN_INDEX
         iteration_number = 0
         number_of_unknown_tokens = 0
         if self.verbose: print("parameters['remap_unknown_tokens_to_unk']: {0}".format(parameters['remap_unknown_tokens_to_unk']))
         if self.verbose: print("len(token_count['train'].keys()): {0}".format(len(token_count['train'].keys())))
         for token, count in token_count['all'].items():
-            if iteration_number == self.UNK_TOKEN_INDEX or iteration_number == self.PADDING_TOKEN_INDEX : iteration_number += 1
+            if iteration_number == self.UNK_TOKEN_INDEX: iteration_number += 1
+            if iteration_number == self.PADDING_TOKEN_INDEX: iteration_number += 1
 
             if parameters['remap_unknown_tokens_to_unk'] == 1 and \
                 (token_count['train'][token] == 0 or \
@@ -170,22 +172,6 @@ class Dataset(object):
         if self.verbose: print("len(token_count['train']): {0}".format(len(token_count['train'])))
         if self.verbose: print("len(infrequent_token_indices): {0}".format(len(infrequent_token_indices)))
 
-        # Ensure that both B- and I- versions exist for each label
-        # labels_without_bio = set()
-        # for label in label_count['all'].keys():
-        #    new_label = utils_nlp.remove_bio_from_label_name(label)
-        #    labels_without_bio.add(new_label)
-        # for label in labels_without_bio:
-        #    if label == 'O':
-        #        continue
-        #    if parameters['tagging_format'] == 'bioes':
-        #        prefixes = ['B-', 'I-', 'E-', 'S-']
-        #    else:
-        #        prefixes = ['B-', 'I-']
-        #    for prefix in prefixes:
-        #        l = prefix + label
-        #        if l not in label_count['all']:
-        #            label_count['all'][l] = 0
         label_count['all'] = utils.order_dictionary(label_count['all'], 'key', reverse = False)
 
         if parameters['use_pretrained_model']:
@@ -204,10 +190,10 @@ class Dataset(object):
                 iteration_number += 1
                 self.unique_labels.append(label)
             self.PADDING_LABEL_INDEX = len(self.unique_labels)
-            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
         if self.verbose: print('self.unique_labels: {0}'.format(self.unique_labels))
 
         character_to_index = {}
+        character_to_index[self.PAD] = self.PADDING_CHARACTER_INDEX
         iteration_number = 0
         for character, count in character_count['all'].items():
             if iteration_number == self.PADDING_CHARACTER_INDEX: iteration_number += 1
@@ -284,7 +270,7 @@ class Dataset(object):
             for label_indices_sequence in label_indices[dataset_type]:
                 vector_sequence = []
                 for indice in label_indices_sequence:
-                    vector = [0] * (max(index_to_label.keys()) + 1)
+                    vector = [0] * len(self.unique_labels)
                     vector[indice] = 1
                     vector_sequence.append(vector)
                 label_vector_indices[dataset_type].append(vector_sequence)
@@ -313,8 +299,8 @@ class Dataset(object):
         if self.verbose: print("len(self.index_to_token): {0}".format(len(self.index_to_token)))
 
         self.number_of_classes = len(set(label_count['train'].keys()))
-        self.vocabulary_size = max(self.index_to_token.keys()) + 1
-        self.alphabet_size = max(self.index_to_character.keys()) + 1
+        self.vocabulary_size = len(self.index_to_token)
+        self.alphabet_size = len(self.character_to_index)
         if self.verbose: print("self.number_of_classes: {0}".format(self.number_of_classes))
         if self.verbose: print("self.alphabet_size: {0}".format(self.alphabet_size))
         if self.verbose: print("self.vocabulary_size: {0}".format(self.vocabulary_size))
@@ -339,6 +325,7 @@ class Dataset(object):
         else:
             raise Exception("Unknown embedding type")
 
+        print(self.label_to_index)
         elapsed_time = time.time() - start_time
         print('done ({0:.2f} seconds)'.format(elapsed_time))
 

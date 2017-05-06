@@ -143,13 +143,10 @@ def pad_batch(dataset, sequence_number, dataset_type):
     batch['label_indices'] = [pad_list(label, max_sequence_lengths, dataset.PADDING_LABEL_INDEX)
                                      for label in label_indices]
 
-
-
     batch_character_indices = np.array(dataset.character_indices[dataset_type])[sequence_number]
     longest_token_length_in_sequence = max(np.array(dataset.longest_token_length_in_sequence[dataset_type])[sequence_number])
     character_indices = [[pad_list(temp_token_indices, longest_token_length_in_sequence, dataset.PADDING_CHARACTER_INDEX)
                                                         for temp_token_indices in character_indices ] for character_indices in batch_character_indices]
-
 
     batch['character_indices_padded'] = [pad_list(character_indice, max_sequence_lengths, [0] * longest_token_length_in_sequence)
                                      for character_indice in character_indices]
