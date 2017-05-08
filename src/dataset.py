@@ -189,9 +189,8 @@ class Dataset(object):
                 label_to_index[label] = iteration_number
                 iteration_number += 1
                 self.unique_labels.append(label)
-            self.PADDING_LABEL_INDEX = len(self.unique_labels)
-            self.unique_labels.append(self.PAD)
-            label_to_index[self.PAD] = self.PADDING_LABEL_INDEX
+            self.PADDING_LABEL_INDEX = label_to_index['O']
+
         if self.verbose: print('self.unique_labels: {0}'.format(self.unique_labels))
 
         character_to_index = {}
@@ -266,7 +265,9 @@ class Dataset(object):
         #if self.verbose: print('character_indices_padded[\'train\'][0][0:10]: {0}'.format(character_indices_padded['train'][0][0:10]))
 
         label_vector_indices = {}
-        self.PADDING_LABEL_VECTOR = [0] * len(self.unique_labels)
+        tmp_vector = [0] * len(self.unique_labels)
+        tmp_vector[label_to_index["O"]] = 1
+        self.PADDING_LABEL_VECTOR = tmp_vector
         for dataset_type in dataset_filepaths.keys():
             label_vector_indices[dataset_type] = []
             for label_indices_sequence in label_indices[dataset_type]:
