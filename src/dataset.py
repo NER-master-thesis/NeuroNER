@@ -321,12 +321,7 @@ class Dataset(object):
         if self.verbose: print('self.unique_labels_of_interest: {0}'.format(self.unique_labels_of_interest))
         if self.verbose: print('self.unique_label_indices_of_interest: {0}'.format(self.unique_label_indices_of_interest))
 
-        if parameters["embedding_type"] == "glove":
-            self.embeddings_matrix = utils_nlp.load_pretrained_token_embeddings(parameters)
-        elif parameters["embedding_type"] == "fasttext":
-            self.embeddings_matrix = all_pretrained_tokens
-        else:
-            raise Exception("Unknown embedding type")
+        self.embeddings_matrix = all_pretrained_tokens
 
         print(self.label_to_index)
         elapsed_time = time.time() - start_time
