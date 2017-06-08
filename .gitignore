@@ -9,3 +9,4 @@ data/*
 to_keep/*
 .DS_Store
 .idea/*
+trained_models/*

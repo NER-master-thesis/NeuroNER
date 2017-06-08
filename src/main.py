@@ -112,6 +112,7 @@ def main():
 
     # Load dataset
     dataset = ds.Dataset(verbose=parameters['verbose'], debug=parameters['debug'])
+    dataset.load_pretrained_word_embeddings(parameters)
     dataset.load_dataset(dataset_filepaths, parameters)
 
     # Create graph and session
@@ -157,8 +158,9 @@ def main():
             for dataset_type in dataset_filepaths.keys():
                 tensorboard_log_folders[dataset_type] = os.path.join(stats_graph_folder, 'tensorboard_logs', dataset_type)
                 utils.create_folder_if_not_exists(tensorboard_log_folders[dataset_type])
+            del dataset.embeddings_matrix
             pickle.dump(dataset, open(os.path.join(model_folder, 'dataset.pickle'), 'wb'))
-
+            dataset.load_pretrained_word_embeddings(parameters)
             # Instantiate the model
             # graph initialization should be before FileWriter, otherwise the graph will not appear in TensorBoard
             model = EntityLSTM(dataset, parameters)

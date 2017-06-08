@@ -12,6 +12,7 @@ import os
 import pickle
 
 
+
 class Dataset(object):
     """A class for handling data sets."""
 
@@ -19,6 +20,7 @@ class Dataset(object):
         self.name = name
         self.verbose = verbose
         self.debug = debug
+        self.embeddings_matrix = None
 
     def _parse_dataset(self, dataset_filepath):
         token_count = collections.defaultdict(lambda: 0)
@@ -28,8 +30,6 @@ class Dataset(object):
         line_count = -1
         tokens = []
         labels = []
-        characters = []
-        token_lengths = []
         new_token_sequence = []
         new_label_sequence = []
         if dataset_filepath:
@@ -45,7 +45,7 @@ class Dataset(object):
                         new_label_sequence = []
                     continue
                 token = str(line[0])
-                label = str(line[-1])
+                label = str(line[2])
                 token_count[token] += 1
                 label_count[label] += 1
 
@@ -55,7 +55,8 @@ class Dataset(object):
                 for character in token:
                     character_count[character] += 1
 
-                if self.debug and line_count > 100: break# for debugging purposes
+                # for debugging purposes
+                if self.debug and line_count > 100: break
 
             if len(new_token_sequence) > 0:
                 labels.append(new_label_sequence)
@@ -63,22 +64,24 @@ class Dataset(object):
 
         return labels, tokens, token_count, label_count, character_count
 
+    def load_pretrained_word_embeddings(self, parameters):
+        print('LOADING PRETRAINED EMBEDDINGS')
+        self.embeddings_matrix = []
+        if parameters['use_pretrained_embeddings']:
+            if parameters["embedding_type"] == 'glove':
+                self.embeddings_matrix = utils_nlp.load_tokens_from_pretrained_token_embeddings(parameters)
+            elif parameters["embedding_type"] == 'fasttext':
+                self.embeddings_matrix = fasttext.load_model(utils_nlp.get_embedding_file_path_fasttext(parameters))
+            else:
+                raise AssertionError("Embedding type nor recognize")
+        if self.verbose: print("len(embeddings_matrix): {0}".format(len(self.embeddings_matrix)))
+
     def load_dataset(self, dataset_filepaths, parameters):
         '''
         dataset_filepaths : dictionary with keys 'train', 'valid', 'test'
         '''
         start_time = time.time()
         print('Load dataset... ', end='', flush=True)
-        all_pretrained_tokens = []
-        if parameters['use_pretrained_embeddings']:
-            if parameters["embedding_type"] == 'glove':
-                all_pretrained_tokens = utils_nlp.load_tokens_from_pretrained_token_embeddings(parameters)
-            elif parameters["embedding_type"] == 'fasttext':
-                all_pretrained_tokens = fasttext.load_model(utils_nlp.get_embedding_file_path_fasttext(parameters))
-            else:
-                raise AssertionError("Embedding type nor recognize")
-        if self.verbose: print("len(all_pretrained_tokens): {0}".format(len(all_pretrained_tokens)))
-
         # Load pretraining dataset to ensure that index to label is compatible to the pretrained model,
         #   and that token embeddings that are learned in the pretrained model are loaded properly.
         all_tokens_in_pretraining_dataset = []
@@ -146,7 +149,7 @@ class Dataset(object):
             if parameters['remap_unknown_tokens_to_unk'] == 1 and \
                 (token_count['train'][token] == 0 or \
                 parameters['load_only_pretrained_token_embeddings']) and \
-                not utils_nlp.is_token_in_pretrained_embeddings(token, all_pretrained_tokens, parameters) and \
+                not utils_nlp.is_token_in_pretrained_embeddings(token, self.embeddings_matrix, parameters) and \
                 token not in all_tokens_in_pretraining_dataset:
                 if self.verbose: print("token: {0}".format(token))
                 if self.verbose: print("token.lower(): {0}".format(token.lower()))
@@ -189,17 +192,21 @@ class Dataset(object):
                 label_to_index[label] = iteration_number
                 iteration_number += 1
                 self.unique_labels.append(label)
-            self.PADDING_LABEL_INDEX = label_to_index['O']
+        self.PADDING_LABEL_INDEX = label_to_index['O']
 
         if self.verbose: print('self.unique_labels: {0}'.format(self.unique_labels))
 
         character_to_index = {}
-        character_to_index[self.PAD] = self.PADDING_CHARACTER_INDEX
-        iteration_number = 0
-        for character, count in character_count['all'].items():
-            if iteration_number == self.PADDING_CHARACTER_INDEX: iteration_number += 1
-            character_to_index[character] = iteration_number
-            iteration_number += 1
+        if parameters['use_pretrained_model']:
+            # TODO: initialize character_to_index from saved pickle
+            character_to_index = pretraining_dataset.character_to_index.copy()
+        else:
+            character_to_index[self.PAD] = self.PADDING_CHARACTER_INDEX
+            iteration_number = 0
+            for character, count in character_count['all'].items():
+                if iteration_number == self.PADDING_CHARACTER_INDEX: iteration_number += 1
+                character_to_index[character] = iteration_number
+                iteration_number += 1
 
         if self.verbose: print('token_count[\'train\'][0:10]: {0}'.format(list(token_count['train'].items())[0:10]))
         token_to_index = utils.order_dictionary(token_to_index, 'value', reverse = False)
@@ -321,7 +328,6 @@ class Dataset(object):
         if self.verbose: print('self.unique_labels_of_interest: {0}'.format(self.unique_labels_of_interest))
         if self.verbose: print('self.unique_label_indices_of_interest: {0}'.format(self.unique_label_indices_of_interest))
 
-        self.embeddings_matrix = all_pretrained_tokens
 
         print(self.label_to_index)
         elapsed_time = time.time() - start_time

@@ -54,9 +54,6 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
     original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', 'UTF-8')
     sequence_numbers = list(range(len(dataset.token_indices[dataset_type])))
 
-
-
-
     for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size'])):
         sequence_number = sequence_numbers[i: i+ parameters['batch_size']]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
@@ -139,7 +136,7 @@ def predict_labels(sess, model, transition_params_trained, parameters, dataset, 
     y_pred = {}
     y_true = {}
     output_filepaths = {}
-    for dataset_type in ['train', 'valid', 'test']:
+    for dataset_type in ['valid', 'test']:
         if dataset_type not in dataset_filepaths.keys():
             continue
         prediction_output = prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths)
@@ -157,7 +154,7 @@ def restore_model_parameters_from_pretrained_model(parameters, dataset, sess, mo
     
     # Assert that the model hyperparameters are the same
     pretraining_parameters = load_parameters(parameters_filepath=os.path.join(pretrained_model_folder, 'parameters.ini'), verbose=False)[0]
-    for name in ['use_character_lstm', 'character_embedding_dimension', 'character_lstm_hidden_state_dimension', 'token_embedding_dimension', 'token_lstm_hidden_state_dimension', 'use_crf']:
+    for name in ['use_character_lstm', 'character_embedding_dimension', 'character_lstm_hidden_state_dimension', 'embedding_dimension', 'token_lstm_hidden_state_dimension', 'use_crf']:
         if parameters[name] != pretraining_parameters[name]:
             print("Parameters of the pretrained model:")
             pprint(pretraining_parameters)
@@ -176,7 +173,7 @@ def restore_model_parameters_from_pretrained_model(parameters, dataset, sess, mo
         
         # Resize the token and character embedding weights to match them with the pretrained model (required in order to restore the pretrained model)
         utils_tf.resize_tensor_variable(sess, model.character_embedding_weights, [pretraining_dataset.alphabet_size, parameters['character_embedding_dimension']])
-        utils_tf.resize_tensor_variable(sess, model.token_embedding_weights, [pretraining_dataset.vocabulary_size, parameters['token_embedding_dimension']])
+        utils_tf.resize_tensor_variable(sess, model.token_embedding_weights, [pretraining_dataset.vocabulary_size, parameters['embedding_dimension']])
     
         # Restore the pretrained model
         model_saver.restore(sess, parameters['pretrained_model_checkpoint_filepath']) # Works only when the dimensions of tensor variables are matched.
@@ -186,7 +183,7 @@ def restore_model_parameters_from_pretrained_model(parameters, dataset, sess, mo
         
         # Restore the sizes of token and character embedding weights
         utils_tf.resize_tensor_variable(sess, model.character_embedding_weights, [dataset.alphabet_size, parameters['character_embedding_dimension']])
-        utils_tf.resize_tensor_variable(sess, model.token_embedding_weights, [dataset.vocabulary_size, parameters['token_embedding_dimension']]) 
+        utils_tf.resize_tensor_variable(sess, model.token_embedding_weights, [dataset.vocabulary_size, parameters['embedding_dimension']])
         
         # Re-initialize the token and character embedding weights
         sess.run(tf.variables_initializer([model.character_embedding_weights, model.token_embedding_weights]))
