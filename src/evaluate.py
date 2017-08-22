@@ -20,7 +20,7 @@ def assess_model(y_pred, y_true, labels, target_names, labels_with_o, target_nam
                                            title='Classification report for epoch {0} in {1} ({2} evaluation)\n'.format(epoch_number, dataset_type,
                                                                                                                         evaluation_mode),
                                            cmap='RdBu')
-    plt.savefig(os.path.join(stats_graph_folder, 'classification_report_for_epoch_{0:04d}_in_{1}_{2}_evaluation.{3}'.format(epoch_number, dataset_type,
+    plt.savefig(os.path.join(stats_graph_folder, 'classification_report_for_epoch_{0:07.3f}_in_{1}_{2}_evaluation.{3}'.format(epoch_number, dataset_type,
                                                                                                                             evaluation_mode, parameters['plot_format'])),
                 dpi=300, format=parameters['plot_format'], bbox_inches='tight')
     plt.close()
@@ -40,7 +40,7 @@ def assess_model(y_pred, y_true, labels, target_names, labels_with_o, target_nam
     xticklabels = yticklabels = target_names_with_o
     utils_plots.heatmap(confusion_matrix, title, xlabel, ylabel, xticklabels, yticklabels, figure_width=40, figure_height=20, correct_orientation=True, fmt="%d", 
                         remove_diagonal=True)
-    plt.savefig(os.path.join(stats_graph_folder, 'confusion_matrix_for_epoch_{0:04d}_in_{1}_{2}_evaluation.{3}'.format(epoch_number, dataset_type,
+    plt.savefig(os.path.join(stats_graph_folder, 'confusion_matrix_for_epoch_{0:07.3f}_in_{1}_{2}_evaluation.{3}'.format(epoch_number, dataset_type,
                                                                                                                        evaluation_mode, parameters['plot_format'])),
                 dpi=300, format=parameters['plot_format'], bbox_inches='tight')
     plt.close()
@@ -264,7 +264,7 @@ def evaluate_model(results, dataset, y_pred_all, y_true_all, stats_graph_folder,
             utils_plots.plot_classification_report(results['epoch'][epoch_number][0][dataset_type]['conll'],
                 title='Classification report for epoch {0} in {1} ({2} evaluation)\n'.format(epoch_number, dataset_type, 'conll'),
                 cmap='RdBu', from_conll_json=True)
-            plt.savefig(os.path.join(stats_graph_folder, 'classification_report_for_epoch_{0:04d}_in_{1}_conll_evaluation.{3}'.format(epoch_number, dataset_type,
+            plt.savefig(os.path.join(stats_graph_folder, 'classification_report_for_epoch_{0:07.3f}_in_{1}_conll_evaluation.{3}'.format(epoch_number, dataset_type,
                                                                                                                                     evaluation_mode, parameters['plot_format'])),
                         dpi=300, format=parameters['plot_format'], bbox_inches='tight')
             plt.close()

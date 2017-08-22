@@ -1,3 +1,4 @@
+import subprocess
 import tensorflow as tf
 tf.set_random_seed(0)
 import numpy as np
@@ -6,7 +7,7 @@ import re
 import time
 import utils_tf
 import utils_nlp
-import fasttext
+import os
 
 def bidirectional_LSTM(input, hidden_state_dimension, initializer, sequence_length=None, output_sequence=True):
 
@@ -115,7 +116,9 @@ class EntityLSTM(object):
         self.input_token_lengths = tf.placeholder(tf.int32, [None,None], name="input_token_lengths") # [batch, sequence_length]
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
 
-        batch_size = tf.shape(self.input_token_lengths)[0]
+        batch_size = tf.shape(self.input_token_character_indices)[0]
+        sentence_size = tf.shape(self.input_token_character_indices)[1]
+        token_size = tf.shape(self.input_token_character_indices)[2]
         # Internal parameters
         initializer = tf.contrib.layers.xavier_initializer()
 
@@ -135,9 +138,9 @@ class EntityLSTM(object):
 
             # Character LSTM layer
             with tf.variable_scope('character_lstm') as vs:
-                batch_size = tf.shape(embedded_characters)[0]
-                sentence_size = tf.shape(embedded_characters)[1]
-                token_size = tf.shape(embedded_characters)[2]
+                #batch_size = tf.shape(embedded_characters)[0]
+                #sentence_size = tf.shape(embedded_characters)[1]
+                #token_size = tf.shape(embedded_characters)[2]
                 embedded_characters = tf.reshape(embedded_characters,
                                                  [batch_size*sentence_size, token_size, parameters['character_embedding_dimension']])
                 input_token_lengths = tf.reshape(self.input_token_lengths, [-1])
@@ -232,6 +235,16 @@ class EntityLSTM(object):
             utils_tf.variable_summaries(b)
             self.feedforward_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vs.name)
 
+        # Add dropout
+        #with tf.variable_scope("dropout"):
+        #    self.unary_scores = tf.nn.dropout(self.unary_scores, self.dropout_keep_prob,
+        #                                          name='crf__input_drop')
+        #    if self.verbose: print("crf_input_drop: {0}".format(self.unary_scores))
+            # https://www.tensorflow.org/api_guides/python/contrib.rnn
+            # Prepare data shape to match `rnn` function requirements
+            # Current data input shape: (batch_size, n_steps, n_input)
+            # Required shape: 'n_steps' tensors list of shape (batch_size, n_input)
+            #       token_lstm_input_drop_expanded = tf.expand_dims(token_lstm_input_drop, axis=0, name='token_lstm_input_drop_expanded')
         # CRF layer
         if parameters['use_crf']:
             with tf.variable_scope("crf") as vs:
@@ -239,7 +252,7 @@ class EntityLSTM(object):
                 #small_score = -1000.0
                 #large_score = 0.0
                 #sequence_length = tf.shape(self.unary_scores)[1]
-                #tmp = tf.tile( tf.constant(small_score, shape=[1, 2]) , [sequence_length, 1])
+                #tmp = tf.tile( tf.constant(small_score, shape=[1, 2]) , [sentence_size, 1])
                 #unary_scores_with_start_and_end = tf.concat([self.unary_scores, tmp], 1)
                 #start_unary_scores = [[small_score] * dataset.number_of_classes + [large_score, small_score]]
                 #end_unary_scores = [[small_score] * dataset.number_of_classes + [small_score, large_score]]
@@ -271,6 +284,7 @@ class EntityLSTM(object):
                 log_likelihood, _ = tf.contrib.crf.crf_log_likelihood(
                          self.unary_scores, self.input_label_indices_flat, self.input_sequence_lengths, transition_params=self.transition_parameters)
 
+                #regularizer = tf.nn.l2_loss(W)
                 self.loss =  tf.reduce_mean(-log_likelihood, name='cross_entropy_mean_loss')
                 self.accuracy = tf.constant(1)
 
@@ -297,7 +311,7 @@ class EntityLSTM(object):
             with tf.variable_scope("accuracy"):
                 correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_label_indices_vector, 1))
                 self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
-                self.unary_scores = tf.reshape(self.unary_scores, [batch_size,-1, dataset.number_of_classes])
+                self. unary_scores = tf.reshape(self.unary_scores, [batch_size,-1, dataset.number_of_classes])
                 self.input_label_indices_vector = tf.reshape(self.input_label_indices_vector,
                                                              [batch_size, -1, dataset.number_of_classes])
         self.define_training_procedure(parameters)
@@ -329,7 +343,7 @@ class EntityLSTM(object):
             return
         # Load embeddings
         start_time = time.time()
-        print('Load token embeddings... ', end='', flush=True)
+        print('Load token embeddings... ', end='\r', flush=True)
 
 
 
@@ -339,27 +353,64 @@ class EntityLSTM(object):
         number_of_token_lowercase_found = 0
         number_of_token_digits_replaced_with_zeros_found = 0
         number_of_token_lowercase_and_digits_replaced_with_zeros_found = 0
-        for token in dataset.token_to_index.keys():
-            if token in dataset.embeddings_matrix:
-                initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
-                number_of_token_original_case_found += 1
-            elif parameters['check_for_lowercase'] and token.lower() in dataset.embeddings_matrix:
-                initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token.lower()]
-                number_of_token_lowercase_found += 1
-            elif parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token) in dataset.embeddings_matrix:
-                initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token)]
-                number_of_token_digits_replaced_with_zeros_found += 1
-            elif parameters['check_for_lowercase'] and parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token.lower()) in dataset.embeddings_matrix:
-                initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token.lower())]
-                number_of_token_lowercase_and_digits_replaced_with_zeros_found += 1
-            else:
-                if parameters['embedding_type'] == 'glove':
-                    continue
-                elif parameters['embedding_type'] == 'fasttext':
-                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
+        tokens_list = []
+        if parameters['embedding_type'] == "fasttext":
+            for token in dataset.token_to_index.keys():
+                if token in dataset.vocab_embeddings:
+                    #initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
+                    tokens_list.append(token)
+                    number_of_token_original_case_found += 1
+                elif parameters['check_for_lowercase'] and token.lower() in dataset.vocab_embeddings:
+                    #initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token.lower()]
+                    tokens_list.append(token.lower())
+                    number_of_token_lowercase_found += 1
+                elif parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token) in dataset.vocab_embeddings:
+                    #initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token)]
+                    tokens_list.append(re.sub('\d', '0', token))
+                    number_of_token_digits_replaced_with_zeros_found += 1
+                elif parameters['check_for_lowercase'] and parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token.lower()) in dataset.vocab_embeddings:
+                    #initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token.lower())]
+                    tokens_list.append(re.sub('\d', '0', token.lower()))
+                    number_of_token_lowercase_and_digits_replaced_with_zeros_found += 1
                 else:
-                    raise AssertionError("Embedding type not recognized")
-            number_of_loaded_word_vectors += 1
+                    if parameters['embedding_type'] == 'glove':
+                        continue
+                    elif parameters['embedding_type'] == 'fasttext':
+                        #initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
+                        tokens_list.append(token)
+                    else:
+                        raise AssertionError("Embedding type not recognized")
+                number_of_loaded_word_vectors += 1
+            with open("tmp.txt", "w") as file:
+                file.write(" ".join(tokens_list))
+            fasttext_script = os.path.join("..", "fastText", "fasttext")
+            shell_command = '{0} print-word-vectors {1} < {2}'.format(fasttext_script, utils_nlp.get_embedding_file_path_fasttext(parameters), "tmp.txt")
+            output = subprocess.check_output(shell_command, shell=True)
+            list_embeddings = output.decode().split("\n")
+            for token, emb in zip(dataset.token_to_index.keys(), list_embeddings):
+                initial_weights[dataset.token_to_index[token]] = list(map(float, emb.split()[-int(parameters["embedding_dimension"]):]))
+        elif parameters['embedding_type'] == "glove":
+            dataset.load_embeddings_matrix(parameters)
+            for token in dataset.token_to_index.keys():
+                if token in dataset.vocab_embeddings:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token]
+                    number_of_token_original_case_found += 1
+                elif parameters['check_for_lowercase'] and token.lower() in dataset.vocab_embeddings:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[token.lower()]
+                    number_of_token_lowercase_found += 1
+                elif parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token) in dataset.vocab_embeddings:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token)]
+                    number_of_token_digits_replaced_with_zeros_found += 1
+                elif parameters['check_for_lowercase'] and parameters['check_for_digits_replaced_with_zeros'] and re.sub('\d', '0', token.lower()) in dataset.vocab_embeddings:
+                    initial_weights[dataset.token_to_index[token]] = dataset.embeddings_matrix[re.sub('\d', '0', token.lower())]
+                    number_of_token_lowercase_and_digits_replaced_with_zeros_found += 1
+
+                else:
+                    continue
+                number_of_loaded_word_vectors += 1
+        else:
+            raise AssertionError("Embedding type not recognized")
+
         elapsed_time = time.time() - start_time
         print('done ({0:.2f} seconds)'.format(elapsed_time))
         print("number_of_token_original_case_found: {0}".format(number_of_token_original_case_found))

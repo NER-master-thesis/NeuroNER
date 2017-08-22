@@ -32,7 +32,7 @@ def get_embedding_file_path(parameters):
     return os.path.join(parameters['embedding_path'],
                         parameters['embedding_type'],
                         parameters['language'],
-                        "word_embeddings_" + str(parameters['embedding_dimension']) + ".p"
+                        "word_embeddings_dict_" + str(parameters['embedding_dimension']) + ".p"
                         )
 
 
@@ -168,3 +168,4 @@ def get_embedding_file_path_fasttext(parameters):
                                        parameters['language'],
                                        "wiki."+parameters['language']+".bin"
                                        )
+

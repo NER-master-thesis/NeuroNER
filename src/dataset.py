@@ -1,16 +1,16 @@
-import fasttext
+import sys
 
-import sklearn.preprocessing
 import utils
-import collections
-import codecs
-import utils_nlp
-import re
-import time
-import token
 import os
 import pickle
-
+import re
+import time
+import collections
+import utils
+import utils_nlp
+import random
+import copy
+import numpy as np
 
 
 class Dataset(object):
@@ -22,7 +22,7 @@ class Dataset(object):
         self.debug = debug
         self.embeddings_matrix = None
 
-    def _parse_dataset(self, dataset_filepath):
+    def _parse_dataset(self, dataset_filepath, language):
         token_count = collections.defaultdict(lambda: 0)
         label_count = collections.defaultdict(lambda: 0)
         character_count = collections.defaultdict(lambda: 0)
@@ -33,55 +33,127 @@ class Dataset(object):
         new_token_sequence = []
         new_label_sequence = []
         if dataset_filepath:
-            f = codecs.open(dataset_filepath, 'r', 'UTF-8')
-            for line in f:
-                line_count += 1
-                line = line.strip().split(' ')
-                if len(line) == 0 or len(line[0]) == 0 or '-DOCSTART-' in line[0]:
-                    if len(new_token_sequence) > 0:
-                        labels.append(new_label_sequence)
-                        tokens.append(new_token_sequence)
-                        new_token_sequence = []
-                        new_label_sequence = []
-                    continue
-                token = str(line[0])
-                label = str(line[2])
-                token_count[token] += 1
-                label_count[label] += 1
+            encoding = "UTF-8"
+            if "combined" in dataset_filepath:
+                label_index = 2
+            else:
+                label_index = -1
+            with open(dataset_filepath, "r", encoding=encoding ) as file:
+            #f = codecs.open(dataset_filepath, 'r', 'UTF-8')
+                for line in file:
+                    line_count += 1
+                    line = line.strip().split(' ')
+                    if len(line) == 0 or len(line[0]) == 0 or '-DOCSTART-' in line[0]:
+                        if len(new_token_sequence) > 0:
+                            labels.append(new_label_sequence)
+                            tokens.append(new_token_sequence)
+                            new_token_sequence = []
+                            new_label_sequence = []
+                        continue
+                    if len(line) == 4  and line[-1] == "O":
+                        continue
+                    #if len(line) == 2:
+                    #    tmp = [' ']
+                    #    tmp.extend(line)
+                    #    line = tmp
+                    token = str(line[0])
 
-                new_token_sequence.append(token)
-                new_label_sequence.append(label)
+                    try:
+                        label = str(line[label_index])
+                        if label == "NN":
+                            a = 1
+                    except IndexError:
+                        print(line_count, line)
+                        print(file.readline())
+                        print(file.readline())
+                        print(file.readline())
+                        sys.exit()
 
-                for character in token:
-                    character_count[character] += 1
+                    token_count[token] += 1
+                    label_count[label] += 1
 
-                # for debugging purposes
-                if self.debug and line_count > 100: break
+                    new_token_sequence.append(token)
+                    new_label_sequence.append(label)
 
-            if len(new_token_sequence) > 0:
-                labels.append(new_label_sequence)
-                tokens.append(new_token_sequence)
+                    for character in token:
+                        character_count[character] += 1
+
+                    # for debugging purposes
+                    if self.debug and line_count > 100: break
+
+                if len(new_token_sequence) > 0:
+                    labels.append(new_label_sequence)
+                    tokens.append(new_token_sequence)
 
         return labels, tokens, token_count, label_count, character_count
 
-    def load_pretrained_word_embeddings(self, parameters):
-        print('LOADING PRETRAINED EMBEDDINGS')
-        self.embeddings_matrix = []
-        if parameters['use_pretrained_embeddings']:
-            if parameters["embedding_type"] == 'glove':
-                self.embeddings_matrix = utils_nlp.load_tokens_from_pretrained_token_embeddings(parameters)
-            elif parameters["embedding_type"] == 'fasttext':
-                self.embeddings_matrix = fasttext.load_model(utils_nlp.get_embedding_file_path_fasttext(parameters))
+    @staticmethod
+    def chunk(x, n):
+        output = []
+        size = int(len(x)/n)
+        for i in range(0, len(x), size):
+            if i < n-1:
+                output.append(x[i:i + size])
             else:
-                raise AssertionError("Embedding type nor recognize")
+                output.append(x[i:])
+                return output
+
+    def get_chunks(self, cv):
+        #shuffle the args:
+        shuffled_args = list(range(0,len(self.tokens['train'])))
+        random.shuffle(shuffled_args)
+        return self.chunk(shuffled_args, cv)
+
+    def get_copy(self):
+        return copy.deepcopy(self)
+
+    def split(self, chunks, id_of_test):
+        train_ids = [l for i in chunks[0:id_of_test] + chunks[id_of_test+1:] for l in i]
+        test_ids = chunks[id_of_test]
+
+        dataset_copy = self.get_copy()
+        dataset_copy.token_indices['train'] = np.array(self.token_indices['train'])[train_ids]
+        dataset_copy.tokens['train'] = np.array(self.tokens['train'])[train_ids]
+        dataset_copy.characters['train'] = np.array(self.characters['train'])[train_ids]
+        dataset_copy.character_indices['train'] = np.array(self.character_indices['train'])[train_ids]
+        dataset_copy.token_lengths['train'] = np.array(self.token_lengths['train'])[train_ids]
+        dataset_copy.sequence_lengths['train'] = np.array(self.sequence_lengths['train'])[train_ids]
+        dataset_copy.longest_token_length_in_sequence['train'] = np.array(self.longest_token_length_in_sequence['train'])[train_ids]
+        dataset_copy.label_indices['train'] = np.array(self.label_indices['train'])[train_ids]
+        dataset_copy.labels['train'] = np.array(self.labels['train'])[train_ids]
+        dataset_copy.label_vector_indices['train'] = np.array(self.label_vector_indices['train'])[train_ids]
+
+        dataset_copy.token_indices['valid'] = np.array(self.token_indices['train'])[test_ids]
+        dataset_copy.tokens['valid'] = np.array(self.tokens['train'])[test_ids]
+        dataset_copy.characters['valid'] = np.array(self.characters['train'])[test_ids]
+        dataset_copy.character_indices['valid'] = np.array(self.character_indices['train'])[test_ids]
+        dataset_copy.token_lengths['valid'] = np.array(self.token_lengths['train'])[test_ids]
+        dataset_copy.sequence_lengths['valid'] = np.array(self.sequence_lengths['train'])[test_ids]
+        dataset_copy.longest_token_length_in_sequence['valid'] = \
+        np.array(self.longest_token_length_in_sequence['train'])[test_ids]
+        dataset_copy.label_indices['valid'] = np.array(self.label_indices['train'])[test_ids]
+        dataset_copy.labels['valid'] = np.array(self.labels['train'])[test_ids]
+        dataset_copy.label_vector_indices['valid'] = np.array(self.label_vector_indices['train'])[test_ids]
+
+        return dataset_copy
+
+    def load_vocab_word_embeddings(self, parameters):
+        print('LOADING Vocab EMBEDDINGS')
+        self.vocab_embeddings = []
+        if parameters['use_pretrained_embeddings']:
+            self.vocab_embeddings = utils_nlp.load_tokens_from_pretrained_token_embeddings(parameters)
         if self.verbose: print("len(embeddings_matrix): {0}".format(len(self.embeddings_matrix)))
+
+    def load_embeddings_matrix(self, parameters):
+        if parameters['use_pretrained_embeddings']:
+            self.embeddings_matrix = utils.load_pickle(utils_nlp.get_embedding_file_path(parameters))
 
     def load_dataset(self, dataset_filepaths, parameters):
         '''
         dataset_filepaths : dictionary with keys 'train', 'valid', 'test'
         '''
         start_time = time.time()
-        print('Load dataset... ', end='', flush=True)
+        print('Load dataset... ', end='\r', flush=True)
         # Load pretraining dataset to ensure that index to label is compatible to the pretrained model,
         #   and that token embeddings that are learned in the pretrained model are loaded properly.
         all_tokens_in_pretraining_dataset = []
@@ -89,11 +161,14 @@ class Dataset(object):
             pretrained_model_folder = os.path.dirname(parameters['pretrained_model_checkpoint_filepath'])
             pretraining_dataset = pickle.load(open(os.path.join(pretrained_model_folder, 'dataset.pickle'), 'rb'))
             all_tokens_in_pretraining_dataset = pretraining_dataset.index_to_token.values()
+            self.vocab_embeddings = all_tokens_in_pretraining_dataset
+
 
         remap_to_unk_count_threshold = 1
-        self.PADDING_CHARACTER_INDEX = 0
+        self.PADDING_CHARACTER_INDEX = 1
         self.PADDING_TOKEN_INDEX = 1
         self.UNK_TOKEN_INDEX = 0
+        self.UNK_CHARACTER_INDEX = 0
         self.tokens_mapped_to_unk = []
         self.UNK = '<UNK>'
         self.PAD = '<PAD>'
@@ -107,9 +182,11 @@ class Dataset(object):
         label_count = {}
         token_count = {}
         character_count = {}
+
+
         for dataset_type in ['train', 'valid', 'test']:
             labels[dataset_type], tokens[dataset_type], token_count[dataset_type], label_count[dataset_type], character_count[dataset_type] \
-                = self._parse_dataset(dataset_filepaths.get(dataset_type, None))
+                = self._parse_dataset(dataset_filepaths.get(dataset_type, None), parameters['language'])
 
             if self.verbose: print("dataset_type: {0}".format(dataset_type))
             if self.verbose: print("len(token_count[dataset_type]): {0}".format(len(token_count[dataset_type])))
@@ -149,7 +226,7 @@ class Dataset(object):
             if parameters['remap_unknown_tokens_to_unk'] == 1 and \
                 (token_count['train'][token] == 0 or \
                 parameters['load_only_pretrained_token_embeddings']) and \
-                not utils_nlp.is_token_in_pretrained_embeddings(token, self.embeddings_matrix, parameters) and \
+                not utils_nlp.is_token_in_pretrained_embeddings(token, self.vocab_embeddings, parameters) and \
                 token not in all_tokens_in_pretraining_dataset:
                 if self.verbose: print("token: {0}".format(token))
                 if self.verbose: print("token.lower(): {0}".format(token.lower()))
@@ -197,6 +274,8 @@ class Dataset(object):
         if self.verbose: print('self.unique_labels: {0}'.format(self.unique_labels))
 
         character_to_index = {}
+        character_to_index[self.UNK] = self.UNK_CHARACTER_INDEX
+
         if parameters['use_pretrained_model']:
             # TODO: initialize character_to_index from saved pickle
             character_to_index = pretraining_dataset.character_to_index.copy()
@@ -204,6 +283,7 @@ class Dataset(object):
             character_to_index[self.PAD] = self.PADDING_CHARACTER_INDEX
             iteration_number = 0
             for character, count in character_count['all'].items():
+                if iteration_number == self.UNK_CHARACTER_INDEX: iteration_number += 1
                 if iteration_number == self.PADDING_CHARACTER_INDEX: iteration_number += 1
                 character_to_index[character] = iteration_number
                 iteration_number += 1

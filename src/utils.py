@@ -125,6 +125,8 @@ def pad_list(old_list, padding_size, padding_value):
     Example: pad_list([6,2,3], 5, 0) returns [6,2,3,0,0]
     '''
     assert padding_size >= len(old_list), "padding_size = " + str(padding_size) + "  len(old_list) = " + str(len(old_list))
+    if padding_size-len(old_list) == 0:
+        return old_list
     return old_list + [padding_value] * (padding_size-len(old_list))
 
 def pad_batch(dataset, sequence_number, dataset_type):

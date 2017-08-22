@@ -1,3 +1,4 @@
+import json
 import os
 import tensorflow as tf
 import numpy as np
@@ -13,6 +14,8 @@ from main import load_parameters
 import codecs
 import utils_nlp
 #from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
+from model_evaluation import report_fscore
+
 
 def train_step(sess, dataset, sequence_number, model, transition_params_trained, parameters):
     # Perform one iteration
@@ -35,27 +38,35 @@ def train_step(sess, dataset, sequence_number, model, transition_params_trained,
         _, _, loss, accuracy, transition_params_trained = sess.run(
                     [model.train_op, model.global_step, model.loss, model.accuracy, model.transition_parameters],
                     feed_dict)
-        return transition_params_trained
+        return transition_params_trained, loss
     else:
         _, _, loss, accuracy = sess.run(
             [model.train_op, model.global_step, model.loss, model.accuracy],feed_dict)
-        return None
+        return None, loss
 
 
-def prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths):
+def prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths, demo=False):
     if dataset_type == 'deploy':
         print('Predict labels for the {0} set'.format(dataset_type))
     else:
         print('Evaluate model on the {0} set'.format(dataset_type))
     all_predictions = []
+    all_predictions_label = []
     all_y_true = []
-    output_filepath = os.path.join(stats_graph_folder, '{1:03d}_{0}.txt'.format(dataset_type,epoch_number))
-    output_file = codecs.open(output_filepath, 'w', 'UTF-8')
-    original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', 'UTF-8')
+    all_y_true_label = []
+    output_filepath = os.path.join(stats_graph_folder, '{1:07.3f}_{0}.txt'.format(dataset_type,epoch_number))
+
+    encoding = "utf-8"
+    output_file = codecs.open(output_filepath, 'w', encoding)
+    if "combined" in dataset_filepaths[dataset_type]:
+        label_idx = 2
+    else:
+        label_idx = -1
+    #original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', encoding=encoding)
     sequence_numbers = list(range(len(dataset.token_indices[dataset_type])))
 
-    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size'])):
-        sequence_number = sequence_numbers[i: i+ parameters['batch_size']]
+    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size'])): #
+        sequence_number = sequence_numbers[i: i  + parameters['batch_size']]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
 
         feed_dict = {
@@ -83,42 +94,53 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
                 predictions = predictions[:sequence_length].tolist()
 
             assert(len(predictions) == len(np.array(dataset.tokens[dataset_type])[j]))
-            output_string = ''
+            output_string = []
             prediction_labels = [dataset.index_to_label[pred] for pred in predictions]
             gold_labels = np.array(dataset.labels[dataset_type])[j]
             if parameters['tagging_format'] == 'bioes':
                 prediction_labels = utils_nlp.bioes_to_bio(prediction_labels)
                 gold_labels = utils_nlp.bioes_to_bio(gold_labels)
             for prediction, token, gold_label in zip(prediction_labels, np.array(dataset.tokens[dataset_type])[j], gold_labels):
-                while True:
-                    line = original_conll_file.readline()
-                    split_line = line.strip().split(' ')
-                    if '-DOCSTART-' in split_line[0] or len(split_line) == 0 or len(split_line[0]) == 0:
-                        continue
-                    else:
-                        token_original = split_line[0]
-                        if parameters['tagging_format'] == 'bioes':
-                            split_line.pop()
-                        gold_label_original = split_line[-1]
-                        assert(token == token_original and gold_label == gold_label_original)
-                        break
-                split_line.append(prediction)
-                output_string += ' '.join(split_line) + '\n'
-            output_file.write(output_string+'\n')
+                #while True:
+                #    line = original_conll_file.readline()
+                #    split_line = line.strip().split(' ')
+                #    if "combined" in dataset_filepaths[dataset_type]:
+                #        split_line = split_line[:label_idx+1]
+                #    if len(split_line) == 0 or '-DOCSTART-' in split_line[0] or len(split_line[0]) == 0:
+                #        continue
+                #    else:
+                #        token_original = split_line[0]
+                #        if parameters['tagging_format'] == 'bioes':
+                #            split_line.pop()
+                #        gold_label_original = split_line[label_idx]
+                #        #if token != token_original or gold_label != gold_label_original:
+                #        assert(token == token_original and gold_label == gold_label_original)
+                #        break
+                #split_line.append(prediction)
+                #output_string.append(' '.join(split_line))
+                output_string.append(' '.join([token, gold_label, prediction]))
+            output_file.write("\n".join(output_string))
+            output_file.write("\n")
 
             all_predictions.extend(predictions)
             all_y_true.extend(np.array(dataset.label_indices[dataset_type])[j])
+
+            all_predictions_label.append(prediction_labels)
+            all_y_true_label.append(np.array(dataset.labels[dataset_type])[j])
     output_file.close()
-    original_conll_file.close()
+    #original_conll_file.close()
+
+    if demo:
+        return all_predictions, all_y_true, output_filepath
 
     if dataset_type != 'deploy':
         if parameters['main_evaluation_mode'] == 'conll':
             conll_evaluation_script = os.path.join('.', 'conlleval')
             conll_output_filepath = '{0}_conll_evaluation.txt'.format(output_filepath)
-            if "labelled_yelp_tips_th06" in parameters["dataset_train"]:
-                shell_command = 'perl {0} -r < {1} > {2}'.format(conll_evaluation_script, output_filepath, conll_output_filepath)
-            else:
-                shell_command = 'perl {0} < {1} > {2}'.format(conll_evaluation_script, output_filepath,
+            #if "labelled_yelp_tips_th06" in parameters["dataset_train"]:
+            #    shell_command = 'perl {0} -r < {1} > {2}'.format(conll_evaluation_script, output_filepath, conll_output_filepath)
+            #else:
+            shell_command = 'perl {0} < {1} > {2}'.format(conll_evaluation_script, output_filepath,
                                                                  conll_output_filepath)
 
             os.system(shell_command)
@@ -126,25 +148,35 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
                 classification_report = f.read()
                 print(classification_report)
         else:
+            raise AssertionError("Not implemented")
             new_y_pred, new_y_true, new_label_indices, new_label_names, _, _ = remap_labels(all_predictions, all_y_true, dataset, parameters['main_evaluation_mode'])
             print(sklearn.metrics.classification_report(new_y_true, new_y_pred, digits=4, labels=new_label_indices, target_names=new_label_names))
+
+    exact_score, inexact_score = report_fscore(all_y_true_label, all_predictions_label)
+    exact_inexact_evaluation = '{0}_exact_inexact_evaluation.txt'.format(output_filepath)
+    with open(exact_inexact_evaluation, "w") as file:
+        file.write("Exact score\n")
+        file.write(json.dumps(exact_score) + "\n")
+        file.write(json.dumps(inexact_score) + "\n")
+
     return all_predictions, all_y_true, output_filepath
 
 
-def predict_labels(sess, model, transition_params_trained, parameters, dataset, epoch_number, stats_graph_folder, dataset_filepaths):
+def predict_labels(sess, model, transition_params_trained, parameters, dataset, epoch_number, stats_graph_folder, dataset_filepaths, demo=False):
     # Predict labels using trained model
     y_pred = {}
     y_true = {}
     output_filepaths = {}
-    for dataset_type in ['valid', 'test']:
+    for dataset_type in ['predict', 'valid', 'test']:
         if dataset_type not in dataset_filepaths.keys():
             continue
-        prediction_output = prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths)
+        prediction_output = prediction_step(sess, dataset, dataset_type, model, transition_params_trained, stats_graph_folder, epoch_number, parameters, dataset_filepaths, demo)
         y_pred[dataset_type], y_true[dataset_type], output_filepaths[dataset_type] = prediction_output
     return y_pred, y_true, output_filepaths
 
 
 def restore_model_parameters_from_pretrained_model(parameters, dataset, sess, model, model_saver):
+    print("Restoring parameters from pretrained model")
     pretrained_model_folder = os.path.dirname(parameters['pretrained_model_checkpoint_filepath'])
     pretraining_dataset = pickle.load(open(os.path.join(pretrained_model_folder, 'dataset.pickle'), 'rb')) 
     
