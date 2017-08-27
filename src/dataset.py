@@ -11,6 +11,7 @@ import utils_nlp
 import random
 import copy
 import numpy as np
+from pprint import pprint
 
 
 class Dataset(object):
@@ -153,7 +154,7 @@ class Dataset(object):
         dataset_filepaths : dictionary with keys 'train', 'valid', 'test'
         '''
         start_time = time.time()
-        print('Load dataset... ', end='\r', flush=True)
+        pprint('Load dataset... ')
         # Load pretraining dataset to ensure that index to label is compatible to the pretrained model,
         #   and that token embeddings that are learned in the pretrained model are loaded properly.
         all_tokens_in_pretraining_dataset = []

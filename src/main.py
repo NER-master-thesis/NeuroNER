@@ -9,12 +9,11 @@ from __future__ import print_function
 
 import glob
 import json
-import os
-import shutil
-
 import numpy as np
-import tensorflow as tf
+import os
 import pickle
+import shutil
+import tensorflow as tf
 from tqdm import tqdm
 
 import utils
@@ -34,6 +33,9 @@ import evaluate
 import configparser
 import train
 import logging
+import argparse
+import constants
+
 from pprint import pprint
 from entity_lstm import EntityLSTM
 from tensorflow.contrib.tensorboard.plugins import projector
@@ -74,7 +76,7 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
                  'check_for_lowercase', 'check_for_digits_replaced_with_zeros', 'freeze_token_embeddings', 'load_only_pretrained_token_embeddings',
                    'gru_neuron']:
             parameters[k] = distutils.util.strtobool(v)
-    if verbose: pprint(parameters)
+    #if verbose: pprint(parameters)
     return parameters, conf_parameters
 
 def get_valid_dataset_filepaths(parameters):
@@ -103,9 +105,20 @@ def check_parameter_compatiblity(parameters, dataset_filepaths):
     
     if parameters['gradient_clipping_value'] < 0:
         parameters['gradient_clipping_value'] = abs(parameters['gradient_clipping_value'])
-    
-def main():
+
+def set_datasets(parameters, language):
+    data = parameters[language]
+    parameters['dataset_train'] = "{}.train".format(data)
+    parameters['dataset_valid'] = "{}.valid".format(data)
+    parameters['dataset_test'] = "{}.test".format(data)
+    parameters['language'] = constants.MAPPING_LANGUAGE[language]
+    return parameters
+
+def main(language):
+
     parameters, conf_parameters = load_parameters()
+    parameters = set_datasets(parameters, language)
+    pprint(parameters)
     dataset_filepaths = get_valid_dataset_filepaths(parameters)
     check_parameter_compatiblity(parameters, dataset_filepaths)
 
@@ -255,7 +268,7 @@ def main():
                     #previous_best_valid_precision = 0
                     #previous_best_valid_recall = 0
                     transition_params_trained = np.random.rand(len(dataset.unique_labels),len(dataset.unique_labels))  #TODO np.random.rand(len(dataset.unique_labels)+2,len(dataset.unique_labels)+2)
-                    model_saver = tf.train.Saver(max_to_keep=parameters['maximum_number_of_epochs'])  # defaults to saving all variables
+                    model_saver = tf.train.Saver(max_to_keep=None)#parameters['maximum_number_of_epochs'])  # defaults to saving all variables
                     epoch_number = 0
 
                     while True:
@@ -276,7 +289,7 @@ def main():
                             sub_id = 0
                             for i in tqdm(range(0,len(sequence_numbers), parameters['batch_size']), "Training", mininterval=1):
                                 data_counter += parameters['batch_size']
-                                if data_counter>= 10000:
+                                if data_counter>= 20000:
                                     data_counter = 0
                                     sub_id += 0.001
                                     print("Intermediate evaluation number: ", sub_id)
@@ -411,6 +424,11 @@ def main():
             # file.write("Mean Recall " + np.mean(valid_recalls))
 
 if __name__ == "__main__":
-    main()
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--languages",nargs='+', type=str, help="list of names of the configuration in the parameter file",
+                           required=True)
+    parsed_args = argparser.parse_args()
+    for language in parsed_args.languages:
+        main(language)
 
 

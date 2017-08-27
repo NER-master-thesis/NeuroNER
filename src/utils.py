@@ -7,7 +7,7 @@ import os
 import time
 import datetime
 import shutil
-
+import yaml
 import pickle
 import numpy as np
 
@@ -159,3 +159,7 @@ def pad_batch(dataset, sequence_number, dataset_type):
     batch['token_lengths'] = batch_token_lengths
 
     return batch
+
+def load_experiments():
+    with open(os.path.join('.', 'experiments.yml'), 'r') as ymlfile:
+        return yaml.load(ymlfile)

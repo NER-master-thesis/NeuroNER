@@ -120,7 +120,7 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
                 #output_string.append(' '.join(split_line))
                 output_string.append(' '.join([token, gold_label, prediction]))
             output_file.write("\n".join(output_string))
-            output_file.write("\n")
+            output_file.write("\n\n")
 
             all_predictions.extend(predictions)
             all_y_true.extend(np.array(dataset.label_indices[dataset_type])[j])

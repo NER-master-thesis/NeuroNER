@@ -223,7 +223,7 @@ def evaluate_model(results, dataset, y_pred_all, y_true_all, stats_graph_folder,
     results['epoch'][epoch_number] = []
     result_update = {}
 
-    for dataset_type in ['train', 'valid', 'test']:
+    for dataset_type in ['predict', 'train', 'valid', 'test']:
         if dataset_type not in output_filepaths.keys():
             continue
         print('Generating plots for the {0} set'.format(dataset_type))
@@ -239,13 +239,12 @@ def evaluate_model(results, dataset, y_pred_all, y_true_all, stats_graph_folder,
                                                                         verbose=verbose)
             if parameters['main_evaluation_mode'] == evaluation_mode:
                 result_update[dataset_type].update(result_update[dataset_type][evaluation_mode])
-
     result_update['time_elapsed_since_epoch_start'] = time.time() - epoch_start_time
     result_update['time_elapsed_since_train_start'] = time.time() - results['execution_details']['train_start']
     results['epoch'][epoch_number].append(result_update)
 
     # CoNLL evaluation script
-    for dataset_type in ['train', 'valid', 'test']:
+    for dataset_type in ['predict', 'train', 'valid', 'test']:
         if dataset_type not in output_filepaths.keys():
             continue
         conll_evaluation_script = os.path.join('.', 'conlleval')

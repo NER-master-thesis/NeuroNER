@@ -343,7 +343,7 @@ class EntityLSTM(object):
             return
         # Load embeddings
         start_time = time.time()
-        print('Load token embeddings... ', end='\r', flush=True)
+        print('Load token embeddings... ')
 
 
 
