@@ -1,16 +1,18 @@
 models:
   CoNLL_en: None
-  CoNLL_de: ../output/de_deu_2017-08-10_18-45-42-177588/model/model_00014.ckpt
+  CoNLL_de: ../output/de_deu_2017-08-10_18-45-42-177588/model/model_00014.ckpt #gpu1-5
   WikiNER_en: None
-  WikiNER_de: None
+  WikiNER_de: ../output/de_aij-wikiner-de-wp2-simplified_2017-08-14_15-35-59-298959/model/model_00001.ckpt #gpu1-5
   en: None
   #de: ../output/de_combined_wp3_0.3_2017-08-23_13-43-26-72157/model/model_001.028.ckpt #gpu1-4
   #de: ../output/de_combined_wp3_0.3_2017-08-23_13-43-26-72157/model/model_001.032.ckpt #gpu1-4
   de: ../output/de_combined_wp3_0.3_2017-08-23_13-43-26-72157/model/model_001.128.ckpt #gpu1-4
+  de_small: ../output/de_combined_wp3_0.3_small2017-08-27_13-59-42-541447/model/model_00016.ckpt #gpu1-4
   it: ../output/it_combined_wp3_0.3_2017-08-23_20-40-29-220420/model/model_003.004.ckpt #gpu1-4
   fr: ../output/fr_combined_wp3_0.3_2017-08-25_06-53-59-673027//model/model_001.007.ckpt #gpu1-4
   pt: None
   es: None
+  als: ../output/als_combined_wp3_1.0_small_2017-08-27_17-25-06-957748/model/model_00019.ckpt #gpu1-4
 
 datasets:
   CoNLL_en: ../../../ner/nerc-conll2003/eng.testb
@@ -88,8 +90,30 @@ experiments:
     - [de,lb]
     - [de,de]
     - [de,en]
+  de_small:
+    - [de_small,de]
+    - [de_small,als]
+    - [de_small,ksh]
+    - [de_small,pfl]
+    - [de_small,pdc]
+    - [de_small,nds]
+    - [de_small,lb]
+    - [de_small,en]
+    - [de_small, WikiNER_de]
+
   de_test:
-    - [de, als_test]
+    - [de_small, als_test]
+
+  de2:
+    - [de, CoNLL_de]
+
+
+  de1_5:
+    - [CoNLL_de, als]
+    - [CoNLL_de, de]
+    - [WikiNER_de, de]
+    - [WikiNER_de, als]
+
   it:
     - [it, fur]
     - [it, lmo]
@@ -134,6 +158,13 @@ experiments:
     - [fr, frp]
     - [fr, fr]
     - [fr, WikiNER_fr]
+
+  als:
+    - [als, de]
+    - [als, CoNLL_de]
+    - [als, WikiNER_de]
+
+
 
 
 

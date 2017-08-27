@@ -67,8 +67,9 @@ def load_parameters(parameters_filepath=os.path.join('.','parameters.ini'), verb
         # Ensure that each parameter is cast to the correct type
         if k in ['character_embedding_dimension','character_lstm_hidden_state_dimension','token_embedding_dimension',
                  'token_lstm_hidden_state_dimension','patience','maximum_number_of_epochs','maximum_training_time','number_of_cpu_threads','number_of_gpus',
-                 'character_hidden_layer', 'token_hidden_layer', 'embedding_dimension', 'batch_size', 'cross_validation']:
-            parameters[k] = int(v)
+                 'character_hidden_layer', 'token_hidden_layer', 'embedding_dimension', 'batch_size', 'cross_validation', 'data_to_use']:
+            if k in parameters:
+                parameters[k] = int(v)
         elif k in ['dropout_rate', 'learning_rate', 'gradient_clipping_value']:
             parameters[k] = float(v)
         elif k in ['remap_unknown_tokens_to_unk', 'use_character_lstm', 'use_crf', 'train_model', 'use_pretrained_model', 'debug', 'verbose',
@@ -117,7 +118,9 @@ def set_datasets(parameters, language):
 def main(language):
 
     parameters, conf_parameters = load_parameters()
-    parameters = set_datasets(parameters, language)
+    if 'dataset_train' not in parameters:
+        parameters = set_datasets(parameters, language)
+
     pprint(parameters)
     dataset_filepaths = get_valid_dataset_filepaths(parameters)
     check_parameter_compatiblity(parameters, dataset_filepaths)
@@ -181,7 +184,12 @@ def main(language):
                 results['model_options'] = copy.copy(parameters)
 
                 dataset_name = utils.get_basename_without_extension(parameters['dataset_train'])
-                model_name = '{0}_{1}'.format(parameters["language"] +"_"+dataset_name, results['execution_details']['time_stamp'])
+                if 'data_to_use' in parameters:
+                    model_name = '{0}_{1}'.format(language + "_" + dataset_name + "_small",
+                                                  results['execution_details']['time_stamp'])
+                else:
+                    model_name = '{0}_{1}'.format(language +"_"+dataset_name, results['execution_details']['time_stamp'])
+
 
                 output_folder=os.path.join('..', 'output')
                 utils.create_folder_if_not_exists(output_folder)
@@ -227,7 +235,7 @@ def main(language):
 
                 # Write metadata for TensorBoard embeddings
                 token_list_file = codecs.open(token_list_file_path,'w', 'UTF-8')
-                for token_index in range(dataset.vocabulary_size):
+                for token_index in range(len(dataset.index_to_token)):
                     token_list_file.write('{0}\n'.format(dataset.index_to_token[token_index]))
                 token_list_file.close()
 

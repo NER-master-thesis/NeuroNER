@@ -275,3 +275,5 @@ def evaluate_model(results, dataset, y_pred_all, y_true_all, stats_graph_folder,
 
     results['execution_details']['train_duration'] = time.time() - results['execution_details']['train_start']
     save_results(results, stats_graph_folder)
+    return conll_output_filepath
+

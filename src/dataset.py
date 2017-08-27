@@ -23,7 +23,7 @@ class Dataset(object):
         self.debug = debug
         self.embeddings_matrix = None
 
-    def _parse_dataset(self, dataset_filepath, language):
+    def _parse_dataset(self, dataset_filepath, language, data_to_use=None):
         token_count = collections.defaultdict(lambda: 0)
         label_count = collections.defaultdict(lambda: 0)
         character_count = collections.defaultdict(lambda: 0)
@@ -85,7 +85,11 @@ class Dataset(object):
                 if len(new_token_sequence) > 0:
                     labels.append(new_label_sequence)
                     tokens.append(new_token_sequence)
-
+        if data_to_use:
+            keys = list(range(0, len(labels)))
+            random.shuffle(keys)
+            labels = np.array(labels)[:data_to_use]
+            tokens = np.array(tokens)[:data_to_use]
         return labels, tokens, token_count, label_count, character_count
 
     @staticmethod
@@ -187,7 +191,7 @@ class Dataset(object):
 
         for dataset_type in ['train', 'valid', 'test']:
             labels[dataset_type], tokens[dataset_type], token_count[dataset_type], label_count[dataset_type], character_count[dataset_type] \
-                = self._parse_dataset(dataset_filepaths.get(dataset_type, None), parameters['language'])
+                = self._parse_dataset(dataset_filepaths.get(dataset_type, None), parameters['language'], parameters['data_to_use'] if 'data_to_use' in parameters else None)
 
             if self.verbose: print("dataset_type: {0}".format(dataset_type))
             if self.verbose: print("len(token_count[dataset_type]): {0}".format(len(token_count[dataset_type])))
@@ -390,7 +394,7 @@ class Dataset(object):
         if self.verbose: print("len(self.index_to_token): {0}".format(len(self.index_to_token)))
 
         self.number_of_classes = len(self.unique_labels)
-        self.vocabulary_size = len(self.index_to_token)
+        self.vocabulary_size = len(self.index_to_token) if len(self.index_to_token) > 100000 else 100000
         self.alphabet_size = len(self.character_to_index)
         if self.verbose: print("self.number_of_classes: {0}".format(self.number_of_classes))
         if self.verbose: print("self.alphabet_size: {0}".format(self.alphabet_size))

@@ -388,7 +388,8 @@ class EntityLSTM(object):
             output = subprocess.check_output(shell_command, shell=True)
             list_embeddings = output.decode().split("\n")
             for token, emb in zip(dataset.token_to_index.keys(), list_embeddings):
-                initial_weights[dataset.token_to_index[token]] = list(map(float, emb.split()[-int(parameters["embedding_dimension"]):]))
+                idx = dataset.token_to_index[token]
+                initial_weights[idx] = list(map(float, emb.split()[-int(parameters["embedding_dimension"]):]))
         elif parameters['embedding_type'] == "glove":
             dataset.load_embeddings_matrix(parameters)
             for token in dataset.token_to_index.keys():
