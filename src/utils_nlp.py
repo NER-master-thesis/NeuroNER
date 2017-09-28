@@ -1,3 +1,6 @@
+from polyglot.mapping import Embedding
+from polyglot.mapping import CaseExpander, DigitExpander
+
 '''
 Miscellaneous utility functions for natural language processing
 '''
@@ -7,11 +10,27 @@ import re
 import utils
 
 def load_tokens_from_pretrained_token_embeddings(parameters):
+    emb_folder = get_embedding_folder_path(parameters)
+    if 'fasttext' in parameters['embedding_type']:
         return utils.load_pickle(os.path.join(parameters['embedding_path'],
-                        parameters['embedding_type'],
+                        'fasttext',
                         parameters['language'],
                         "vocab_word_embeddings_" + str(parameters['embedding_dimension']) + ".p"
                         ))
+    elif parameters['embedding_type'] == 'glove':
+        raise NotImplementedError
+    elif parameters['embedding_type'] == 'polyglot':
+        vocab, _ = utils.load_pickle(get_embedding_polyglot_file_path(parameters), encoding='latin1')
+        return vocab
+
+    else:
+        raise("Unrecognized word embedding type (only support fasttext, glove, polyglot)")
+
+
+def get_embedding_folder_path(parameters):
+    return os.path.join(parameters['embedding_path'],
+                        parameters['embedding_type'],
+                        parameters['language'])
 
 def load_pretrained_token_embeddings(parameters):
     vocab_dict = load_tokens_from_pretrained_token_embeddings(parameters)
@@ -29,12 +48,12 @@ def load_fasttext_embeddings(parameters):
                                        ))
 
 def get_embedding_file_path(parameters):
-    return os.path.join(parameters['embedding_path'],
-                        parameters['embedding_type'],
-                        parameters['language'],
-                        "word_embeddings_dict_" + str(parameters['embedding_dimension']) + ".p"
-                        )
+    emb_folder = get_embedding_folder_path(parameters)
+    return os.path.join(emb_folder, "word_embeddings_dict_" + str(parameters['embedding_dimension']) + ".p")
 
+def get_embedding_polyglot_file_path(parameters):
+    emb_folder = get_embedding_folder_path(parameters)
+    return os.path.join(emb_folder, "polyglot-{}.pkl".format(parameters['language']))
 
 
 
@@ -164,8 +183,15 @@ def convert_conll_from_bio_to_bioes(input_conll_filepath, output_conll_filepath)
 
 def get_embedding_file_path_fasttext(parameters):
     return os.path.join(parameters['embedding_path'],
-                                       parameters['embedding_type'],
+                                       'fasttext',
                                        parameters['language'],
                                        "wiki."+parameters['language']+".bin"
                                        )
+
+def is_int(x):
+    try:
+        x = int(x)
+        return True
+    except:
+        return False
 

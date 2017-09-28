@@ -151,21 +151,21 @@ def main(args):
             #dataset.load_vocab_word_embeddings(parameters)
             iteration_number = 0
             dataset.token_to_index = dict()
+            dataset.number_of_unknown_tokens = 0
             for token_sentence in tqdm(dataset.tokens['predict']):
                 for token in token_sentence:
                     if iteration_number == dataset.UNK_TOKEN_INDEX: iteration_number += 1
                     if iteration_number == dataset.PADDING_TOKEN_INDEX: iteration_number += 1
-
+                    if token == "CD":
+                        a=1
                     if not utils_nlp.is_token_in_pretrained_embeddings(token, dataset.vocab_embeddings, parameters):
-                        if parameters['embedding_type'] == 'glove':
-                            dataset.token_to_index[token] =  dataset.UNK_TOKEN_INDEX
-                            dataset.number_of_unknown_tokens += 1
-                            dataset.tokens_mapped_to_unk.append(token)
-                        elif parameters['embedding_type'] == 'fasttext':
+                        if parameters['embedding_type'] == 'fasttext':
                             dataset.token_to_index[token] = iteration_number
                             iteration_number += 1
                         else:
-                            raise AssertionError("Embedding type not recognized")
+                            dataset.token_to_index[token] = dataset.UNK_TOKEN_INDEX
+                            dataset.number_of_unknown_tokens += 1
+                            dataset.tokens_mapped_to_unk.append(token)
                     else:
                         if token not in dataset.token_to_index:
                             dataset.token_to_index[token] = iteration_number
@@ -232,7 +232,7 @@ def main(args):
                 prediction_folder = os.path.join('..', 'predictions')
                 utils.create_folder_if_not_exists(prediction_folder)
                 dataset_name = parameters['pretrained_model_name']
-                model_name = '{0}_{1}'.format(parameters["language"] + "_" + dataset_name,
+                model_name = '{0}_{1}'.format(dataset_name,
                                               time_stamp)
                 prediction_folder = os.path.join(prediction_folder, model_name)
                 utils.create_folder_if_not_exists(prediction_folder)

@@ -3,17 +3,20 @@ models:
   CoNLL_de: ../output/de_deu_2017-08-10_18-45-42-177588/model/model_00014.ckpt #gpu1-5
   WikiNER_en: None
   WikiNER_de: ../output/de_aij-wikiner-de-wp2-simplified_2017-08-14_15-35-59-298959/model/model_00001.ckpt #gpu1-5
-  en: None
+  en: en_combined_wp3_0.1_2017-08-14_23-28-52-854871/model/model_001.009.ckpt
   #de: ../output/de_combined_wp3_0.3_2017-08-23_13-43-26-72157/model/model_001.028.ckpt #gpu1-4
   #de: ../output/de_combined_wp3_0.3_2017-08-23_13-43-26-72157/model/model_001.032.ckpt #gpu1-4
   de: ../output/de_combined_wp3_0.3_2017-08-23_13-43-26-72157/model/model_001.128.ckpt #gpu1-4
   de_small: ../output/de_combined_wp3_0.3_small2017-08-27_13-59-42-541447/model/model_00016.ckpt #gpu1-4
   it: ../output/it_combined_wp3_0.3_2017-08-23_20-40-29-220420/model/model_003.004.ckpt #gpu1-4
+  it_noOOV: ../output/it_combined_wp3_0.3_2017-09-06_16-49-45-19881/model/model_002.001.ckpt
   fr: ../output/fr_combined_wp3_0.3_2017-08-25_06-53-59-673027//model/model_001.007.ckpt #gpu1-4
   pt: None
   es: None
   als: ../output/als_combined_wp3_1.0_small_2017-08-27_17-25-06-957748/model/model_00019.ckpt #gpu1-4
+  lmo_fasttext_noOOV_False_source: ../output/lmo_fasttext_noOOV_False_source_2017-09-05_09-20-52-380040/model/model_00026.ckpt
 
+dataset_folder: ../../../new_dataset/
 datasets:
   CoNLL_en: ../../../ner/nerc-conll2003/eng.testb
   CoNLL_de: ../../../ner/nerc-conll2003/deu.testb
@@ -27,39 +30,39 @@ datasets:
   de: ../../../new_dataset/de/wp3/combined_wp3_0.3.test
   als: ../../../new_dataset/als/wp3/combined_wp3_1.0.txt
   als_test: ../../../new_dataset/als/wp3/combined_wp3_1.0.test
-  als_b: ../../../new_dataset/als/wp3/combined_wp3_1.0_b.txt
+  als_p: ../../../new_dataset/als/wp3/combined_wp3_1.0.test_p
   lb: ../../../new_dataset/lb/wp3/combined_wp3_1.0.txt
-  lb_b: ../../../new_dataset/lb/wp3/combined_wp3_1.0_b.txt
+  lb_p: ../../../new_dataset/lb/wp3/combined_wp3_1.0.test_p
   nds: ../../../new_dataset/nds/wp3/combined_wp3_1.0.txt
-  nds_b: ../../../new_dataset/nds/wp3/combined_wp3_1.0_b.txt
+  nds_p: ../../../new_dataset/nds/wp3/combined_wp3_1.0.test_p
   ksh: ../../../new_dataset/ksh/wp3/combined_wp3_1.0.txt
-  ksh_b: ../../../new_dataset/ksh/wp3/combined_wp3_1.0_b.txt
+  ksh_p: ../../../new_dataset/ksh/wp3/combined_wp3_1.0.test_p
   pfl: ../../../new_dataset/pfl/wp3/combined_wp3_1.0.txt
-  pfl_b: ../../../new_dataset/pfl/wp3/combined_wp3_1.0_b.txt
+  pfl_p: ../../../new_dataset/pfl/wp3/combined_wp3_1.0.test_p
   pdc: ../../../new_dataset/pdc/wp3/combined_wp3_1.0.txt
-  pdc_b: ../../../new_dataset/pdc/wp3/combined_wp3_1.0_b.txt
+  pdc_p: ../../../new_dataset/pdc/wp3/combined_wp3_1.0.test_p
   #italian
   it: ../../../new_dataset/it/wp3/combined_wp3_0.3.test
-  pms: ../../../new_dataset/pms/wp3/combined_wp3_1.0.txt
-  pms_b: ../../../new_dataset/pms/wp3/combined_wp3_1.0_b.txt
+  pms_p: ../../../new_dataset/pms/wp3/combined_wp3_1.0.test_p
   lmo: ../../../new_dataset/lmo/wp3/combined_wp3_1.0.txt
-  lmo_b: ../../../new_dataset/lmo/wp3/combined_wp3_1.0_b.txt
+  lmo_p: ../../../new_dataset/lmo/wp3/combined_wp3_1.0.test_p
+  lmo_p: ../../../new_dataset/lmo/wp3/combined_wp3_1.0.test
   scn: ../../../new_dataset/scn/wp3/combined_wp3_1.0.txt
-  scn_b: ../../../new_dataset/scn/wp3/combined_wp3_1.0_b.txt
+  scn_p: ../../../new_dataset/scn/wp3/combined_wp3_1.0.test_p
   vec: ../../../new_dataset/vec/wp3/combined_wp3_1.0.txt
-  vec_b: ../../../new_dataset/vec/wp3/combined_wp3_1.0_b.txt
+  vec_p: ../../../new_dataset/vec/wp3/combined_wp3_1.0.test_p
   nap: ../../../new_dataset/nap/wp3/combined_wp3_1.0.txt
-  nap_b: ../../../new_dataset/nap/wp3/combined_wp3_1.0_b.txt
+  nap_p: ../../../new_dataset/nap/wp3/combined_wp3_1.0.test_p
   sc: ../../../new_dataset/sc/wp3/combined_wp3_1.0.txt
-  sc_b: ../../../new_dataset/sc/wp3/combined_wp3_1.0_b.txt
+  sc_p: ../../../new_dataset/sc/wp3/combined_wp3_1.0.test_p
   co: ../../../new_dataset/co/wp3/combined_wp3_1.0.txt
-  co_b: ../../../new_dataset/co/wp3/combined_wp3_1.0_b.txt
+  co_p: ../../../new_dataset/co/wp3/combined_wp3_1.0.test_p
   rm: ../../../new_dataset/rm/wp3/combined_wp3_1.0.txt
-  rm_b: ../../../new_dataset/rm/wp3/combined_wp3_1.0_b.txt
+  rm_p: ../../../new_dataset/rm/wp3/combined_wp3_1.0.test_p
   lij: ../../../new_dataset/lij/wp3/combined_wp3_1.0.txt
-  lij_b: ../../../new_dataset/lij/wp3/combined_wp3_1.0_b.txt
+  lij_p: ../../../new_dataset/lij/wp3/combined_wp3_1.0.test_p
   fur: ../../../new_dataset/fur/wp3/combined_wp3_1.0.txt
-  fur_b: ../../../new_dataset/fur/wp3/combined_wp3_1.0_b.txt
+  fur_p: ../../../new_dataset/fur/wp3/combined_wp3_1.0.test_p
   #French:
   oc: ../../../new_dataset/oc/wp3/combined_wp3_1.0.test
   ht: ../../../new_dataset/ht/wp3/combined_wp3_1.0.test
@@ -73,13 +76,13 @@ datasets:
   es: None
 
 experiments:
-  de_b:
-    - [de,als_b]
-    - [de,ksh_b]
-    - [de,pfl_b]
-    - [de,pdc_b]
-    - [de,nds_b]
-    - [de,lb_b]
+  de_p:
+    - [de,als_p]
+    - [de,ksh_p]
+    - [de,pfl_p]
+    - [de,pdc_p]
+    - [de,nds_p]
+    - [de,lb_p]
   de:
     - [de, WikiNER_de]
     - [de,als]
@@ -120,7 +123,7 @@ experiments:
     - [it, scn]
     - [it, vec]
     - [it, nap]
-    - [it, co]
+    - [it, co] #HERE
     - [it, sc]
     - [it, rm]
     - [it, lij]
@@ -128,18 +131,29 @@ experiments:
     - [it, it]
     - [it, WikiNER_it]
 
-  it_b:
-    - [it, fur_b]
-    - [it, lmo_b]
-    - [it, scn_b]
-    - [it, vec_b]
-    - [it, nap_b]
-    - [it, co_b]
-    - [it, sc_b]
-    - [it, rm_b]
-    - [it, lij_b]
-    - [it, pms_b]
+  it_p:
+    - [it, fur_p]
+    - [it, lmo_p]
+    - [it, scn_p]
+    - [it, vec_p]
+    - [it, nap_p]
+    - [it, co_p]
+    - [it, sc_p]
+    - [it, rm_p]
+    - [it, lij_p]
+    - [it, pms_p]
 
+  it_noOOV:
+    - [it_noOOV, fur_p]
+    - [it_noOOV, lmo_p]
+    - [it_noOOV, scn_p]
+    - [it_noOOV, vec_p]
+    - [it_noOOV, nap_p]
+    - [it_noOOV, co_p]
+    - [it_noOOV, sc_p]
+    - [it_noOOV, rm_p]
+    - [it_noOOV, lij_p]
+    - [it_noOOV, pms_p]
 
   de2:
     - [de,CoNLL_de]
@@ -163,6 +177,9 @@ experiments:
     - [als, de]
     - [als, CoNLL_de]
     - [als, WikiNER_de]
+
+  test:
+    - [lmo_fasttext_noOOV_False_source, lmo_p]
 
 
 

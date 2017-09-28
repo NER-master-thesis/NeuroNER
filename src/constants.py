@@ -33,20 +33,6 @@ MAPPING_LANGUAGE = {
 
 }
 
-LANGUAGE_FULL_NAME = {
-    "en" : "english",
-    "de" : "german",
-    "it" : "italian",
-    "fr" : "french"
-}
-
-MAPPING_LOCALE = {
-    "en": "en_US",
-    "de": "de_DE",
-    "it": "it_IT",
-    "fr": "fr_FR"
-}
-
 
 
 

@@ -65,7 +65,7 @@ def prediction_step(sess, dataset, dataset_type, model, transition_params_traine
     #original_conll_file = codecs.open(dataset_filepaths[dataset_type], 'r', encoding=encoding)
     sequence_numbers = list(range(len(dataset.token_indices[dataset_type])))
 
-    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size'])): #
+    for i in tqdm(range(0,len(dataset.token_indices[dataset_type]), parameters['batch_size']), "Testing on {} at epoch {}".format(dataset_type, epoch_number)): #
         sequence_number = sequence_numbers[i: i  + parameters['batch_size']]
         batch = utils.pad_batch(dataset, sequence_number, dataset_type)
 

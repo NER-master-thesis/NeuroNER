@@ -51,8 +51,8 @@ class Dataset(object):
                             new_token_sequence = []
                             new_label_sequence = []
                         continue
-                    if len(line) == 4  and line[-1] == "O":
-                        continue
+                    #if len(line) == 4  and line[-1] == "O":
+                    #    continue
                     #if len(line) == 2:
                     #    tmp = [' ']
                     #    tmp.extend(line)
@@ -150,8 +150,16 @@ class Dataset(object):
         if self.verbose: print("len(embeddings_matrix): {0}".format(len(self.embeddings_matrix)))
 
     def load_embeddings_matrix(self, parameters):
-        if parameters['use_pretrained_embeddings']:
-            self.embeddings_matrix = utils.load_pickle(utils_nlp.get_embedding_file_path(parameters))
+        if parameters['embedding_type' ] == "glove":
+            if parameters['use_pretrained_embeddings']:
+                self.embeddings_matrix = utils.load_pickle(utils_nlp.get_embedding_file_path(parameters))
+        elif parameters['embedding_type'] == 'polyglot':
+            vocab, embedding = utils.load_pickle(utils_nlp.get_embedding_polyglot_file_path(parameters), encoding='latin1')
+            self.embeddings_matrix = dict()
+            for v, e in zip(vocab, embedding):
+                self.embeddings_matrix[v] = e
+        else:
+            raise("Unknown embedding type")
 
     def load_dataset(self, dataset_filepaths, parameters):
         '''
@@ -227,7 +235,6 @@ class Dataset(object):
         for token, count in token_count['all'].items():
             if iteration_number == self.UNK_TOKEN_INDEX: iteration_number += 1
             if iteration_number == self.PADDING_TOKEN_INDEX: iteration_number += 1
-
             if parameters['remap_unknown_tokens_to_unk'] == 1 and \
                 (token_count['train'][token] == 0 or \
                 parameters['load_only_pretrained_token_embeddings']) and \
@@ -236,15 +243,15 @@ class Dataset(object):
                 if self.verbose: print("token: {0}".format(token))
                 if self.verbose: print("token.lower(): {0}".format(token.lower()))
                 if self.verbose: print("re.sub('\d', '0', token.lower()): {0}".format(re.sub('\d', '0', token.lower())))
-                if parameters['embedding_type'] == 'glove':
-                    token_to_index[token] =  self.UNK_TOKEN_INDEX
-                    number_of_unknown_tokens += 1
-                    self.tokens_mapped_to_unk.append(token)
-                elif parameters['embedding_type'] == 'fasttext':
-                    token_to_index[token] = iteration_number
-                    iteration_number += 1
-                else:
-                    raise AssertionError("Embedding type not recognized")
+                token_to_index[token] = iteration_number
+                iteration_number += 1
+                #if parameters['embedding_type'] == 'fasttext':
+                #    token_to_index[token] = iteration_number
+                #    iteration_number += 1
+                #else:
+                #    token_to_index[token] =  self.UNK_TOKEN_INDEX
+                #    number_of_unknown_tokens += 1
+                #    self.tokens_mapped_to_unk.append(token)
             else:
                 token_to_index[token] = iteration_number
                 iteration_number += 1
@@ -418,3 +425,4 @@ class Dataset(object):
         elapsed_time = time.time() - start_time
         print('done ({0:.2f} seconds)'.format(elapsed_time))
 
+        #self.vocab_embeddings = None

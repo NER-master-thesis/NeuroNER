@@ -10,6 +10,8 @@ import shutil
 import yaml
 import pickle
 import numpy as np
+import glob
+
 
 def order_dictionary(dictionary, mode, reverse=False):
     '''
@@ -114,10 +116,10 @@ def copytree(src, dst, symlinks=False, ignore=None):
         else:
             shutil.copy2(s, d)
 
-def load_pickle(file_path):
+def load_pickle(file_path, encoding="utf-8"):
     print(file_path)
     with open(file_path, "rb") as file:
-        return pickle.load(file)
+        return pickle.load(file, encoding=encoding)
 
 def pad_list(old_list, padding_size, padding_value):
     '''
@@ -163,3 +165,12 @@ def pad_batch(dataset, sequence_number, dataset_type):
 def load_experiments():
     with open(os.path.join('.', 'experiments.yml'), 'r') as ymlfile:
         return yaml.load(ymlfile)
+
+
+def keep_only_best_model(model_folder, best_model_epoch, max_number_epoch):
+    print("Remove all the model and keep only the best one")
+    for i in range(0,max_number_epoch):
+        if i != best_model_epoch:
+            model_path = os.path.join(model_folder, 'model_{0:05d}.ckpt*'.format(i))
+            for file in glob.glob(model_path):
+                os.remove(file)
